@@ -29,6 +29,10 @@ export default function Home({ params }) {
               {c.ctaSearch}
             </a>
           </div>
+          <Link href={`/${lang}/reviews`} className="mt-6 inline-block text-sm text-cream/80 link-underline">
+            <span className="text-gold">★★★★★</span>{' '}
+            {lang === 'es' ? '5.0 · 21 reseñas de Google' : '5.0 · 21 Google reviews'}
+          </Link>
         </div>
       </section>
 

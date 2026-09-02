@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { about } from '../../../lib/content';
 
 export async function generateMetadata({ params }) {
@@ -13,6 +14,20 @@ export default function About({ params }) {
         <div className="wrap py-20">
           <h1 className="max-w-3xl text-4xl md:text-6xl italic">{c.title}</h1>
           <p className="mt-6 max-w-2xl text-lg text-cream/85">{c.intro}</p>
+        </div>
+      </section>
+
+      <section className="wrap -mt-10 md:-mt-14">
+        <div className="mx-auto max-w-2xl overflow-hidden rounded-sm border border-ink/10 shadow-sm">
+          <Image
+            src="/team.jpg"
+            alt="Pam Perez and Mauricio Arredondo of The Arper Group"
+            width={1400}
+            height={1750}
+            priority
+            className="h-auto w-full"
+            sizes="(max-width: 768px) 100vw, 42rem"
+          />
         </div>
       </section>
 
