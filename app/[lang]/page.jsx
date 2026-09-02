@@ -1,8 +1,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { home } from '../../lib/content';
+import { home, cities, citySlugs } from '../../lib/content';
 import { searchUrl } from '../../lib/site';
 import { SearchButton } from '../../components/site';
+
+const TILE_GROUNDS = ['bg-petrol', 'bg-ink', 'bg-forest'];
 
 export async function generateMetadata({ params }) {
   const c = home[params.lang];
@@ -104,14 +106,40 @@ export default function Home({ params }) {
 
       {/* Explore RGV */}
       <section className="wrap py-16 md:py-20">
-        <h2 className="text-3xl md:text-4xl">{c.rgvTitle}</h2>
+        <h2 className="text-3xl md:text-4xl">
+          {c.rgvTitlePre}
+          <span className="italic">{c.rgvTitleAccent}</span>
+        </h2>
         <p className="mt-3 max-w-xl text-ink/70">{c.rgvBody}</p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          {c.cities.map((ct) => (
-            <Link key={ct.slug} href={`/${lang}/rgv/${ct.slug}`} className="rounded-sm border border-ink/20 px-4 py-2 text-sm hover:border-petrol hover:text-petrol">
-              {ct.name}
-            </Link>
-          ))}
+        <div
+          className="mt-8 grid gap-4"
+          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))' }}
+        >
+          {citySlugs.map((slug, i) => {
+            const ct = cities[slug][lang];
+            return (
+              <Link
+                key={slug}
+                href={`/${lang}/rgv/${slug}`}
+                className={`group relative aspect-[4/5] overflow-hidden rounded-sm ${TILE_GROUNDS[i % TILE_GROUNDS.length]}`}
+              >
+                <Image
+                  src="/brand/imagotipo-06.png"
+                  alt=""
+                  aria-hidden="true"
+                  width={200}
+                  height={200}
+                  className="pointer-events-none absolute -right-6 -top-6 w-24 opacity-[0.12] select-none"
+                />
+                <div className="relative flex h-full flex-col justify-end p-5">
+                  <div className="font-display text-xl text-cream md:text-2xl">{ct.name}</div>
+                  <span className="mt-2 text-sm font-medium text-gold link-underline">
+                    {c.viewArea} →
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </section>
 
