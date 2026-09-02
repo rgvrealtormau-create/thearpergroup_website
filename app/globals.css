@@ -8,18 +8,23 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   background: #F7F3EC;
   color: #2A2626;
-  font-family: var(--font-sans, '"Hanken Grotesk"', system-ui, sans-serif);
+  font-family: var(--font-sans), system-ui, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; line-height: 1.08; font-weight: 400; }
+h1, h2, h3 { font-family: var(--font-sans), system-ui, sans-serif; line-height: 1.08; font-weight: 400; }
 
 .wrap { max-width: 68rem; margin-inline: auto; padding-inline: 1.25rem; }
 
 a { color: inherit; }
 
 .link-underline { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+
+/* Larken italic is reserved for italic accent words and the large pull-quote;
+   overriding the Tailwind `.italic` utility here keeps that pairing global
+   without editing every page that already marks its accent text italic. */
+.italic { font-family: var(--font-serif), Georgia, serif; font-style: italic; }
 
 @media (prefers-reduced-motion: no-preference) {
   .fade-in { animation: fade .5s ease both; }

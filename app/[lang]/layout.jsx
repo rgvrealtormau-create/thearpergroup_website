@@ -2,6 +2,7 @@ import '../globals.css';
 import { Header, Footer } from '../../components/site';
 import JsonLd from '../../components/JsonLd';
 import { BUSINESS } from '../../lib/site';
+import { halyard, larken } from '../../lib/fonts';
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -31,15 +32,7 @@ export default function LangLayout({ children, params }) {
     knowsLanguage: ['en', 'es'],
   };
   return (
-    <html lang={lang}>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang={lang} className={`${halyard.variable} ${larken.variable}`}>
       <body>
         <JsonLd data={org} />
         <Header lang={lang} />

@@ -17,8 +17,9 @@ module.exports = {
         clay: '#946443',
       },
       fontFamily: {
-        display: ['Fraunces', 'Georgia', 'serif'],
-        sans: ['"Hanken Grotesk"', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['var(--font-sans)', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['var(--font-serif)', 'Georgia', 'serif'],
+        display: ['var(--font-sans)', 'system-ui', '-apple-system', 'sans-serif'],
       },
       maxWidth: { content: '68rem' },
     },

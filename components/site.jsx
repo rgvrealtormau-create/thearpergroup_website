@@ -5,12 +5,17 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BUSINESS, searchUrl, otherLang, swapLangInPath, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import { nav, ui, footer as footerCopy } from '../lib/content';
+import { Logo, LogoLockup } from './Logo';
 
-export function SearchButton({ lang, campaign = 'nav', className = '' }) {
+export function SearchButton({ lang, campaign = 'nav', className = '', variant = 'gold' }) {
+  const variants = {
+    gold: 'bg-gold text-ink hover:bg-[#c9a96b]',
+    petrol: 'bg-petrol text-cream hover:bg-[#243b49]',
+  };
   return (
     <a
       href={searchUrl(campaign)}
-      className={`inline-flex items-center justify-center rounded-sm bg-gold px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-[#c9a96b] ${className}`}
+      className={`inline-flex items-center justify-center rounded-sm px-4 py-2 text-sm font-medium transition-colors ${variants[variant]} ${className}`}
     >
       {ui[lang].search}
     </a>
@@ -31,31 +36,31 @@ export function Header({ lang }) {
   const [open, setOpen] = useState(false);
   const items = nav[lang];
   return (
-    <header className="sticky top-0 z-40 border-b border-black/10 bg-paper/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-black/10 bg-cream/95 backdrop-blur">
       <div className="wrap flex items-center justify-between gap-4 py-3">
-        <Link href={`/${lang}`} className="font-display text-xl tracking-tight">
-          The Arper Group
+        <Link href={`/${lang}`} aria-label="The Arper Group">
+          <Logo variant="petrol" className="h-14 w-auto" priority />
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
           {items.map((it) => (
-            <Link key={it.href} href={it.href} className="text-sm hover:text-petrol">{it.label}</Link>
+            <Link key={it.href} href={it.href} className="text-sm text-petrol hover:text-ink">{it.label}</Link>
           ))}
           <LangToggle lang={lang} />
-          <SearchButton lang={lang} />
+          <SearchButton lang={lang} variant="petrol" />
         </nav>
-        <button className="md:hidden text-sm" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <button className="md:hidden text-sm text-petrol" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
           {open ? ui[lang].close : ui[lang].menu}
         </button>
       </div>
       {open && (
-        <div className="border-t border-black/10 bg-paper md:hidden">
+        <div className="border-t border-black/10 bg-cream md:hidden">
           <div className="wrap flex flex-col gap-3 py-4">
             {items.map((it) => (
-              <Link key={it.href} href={it.href} className="text-sm" onClick={() => setOpen(false)}>{it.label}</Link>
+              <Link key={it.href} href={it.href} className="text-sm text-petrol" onClick={() => setOpen(false)}>{it.label}</Link>
             ))}
             <div className="flex items-center gap-4 pt-2">
               <LangToggle lang={lang} />
-              <SearchButton lang={lang} />
+              <SearchButton lang={lang} variant="petrol" />
             </div>
           </div>
         </div>
@@ -67,11 +72,11 @@ export function Header({ lang }) {
 export function Footer({ lang }) {
   const f = footerCopy[lang];
   return (
-    <footer className="mt-24 bg-petrol text-cream">
+    <footer className="mt-24 bg-ink text-cream">
       <div className="wrap grid gap-10 py-14 md:grid-cols-3">
         <div>
-          <div className="font-display text-2xl">The Arper Group</div>
-          <p className="mt-2 max-w-xs text-sm text-cream/80 font-display italic">{f.tagline}</p>
+          <LogoLockup className="h-20 w-auto" />
+          <p className="mt-4 max-w-xs text-sm text-cream/80 italic">{f.tagline}</p>
         </div>
         <div className="text-sm">
           <p className="text-cream/90">{f.brokerLine}</p>
