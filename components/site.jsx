@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BUSINESS, searchUrl, otherLang, swapLangInPath } from '../lib/site';
+import { BUSINESS, searchUrl, otherLang, swapLangInPath, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import { nav, ui, footer as footerCopy } from '../lib/content';
 
 export function SearchButton({ lang, campaign = 'nav', className = '' }) {
@@ -102,13 +102,42 @@ export function Footer({ lang }) {
 export function ValuationForm({ lang, copy }) {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   const c = copy.fields;
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
     setBusy(true);
-    // TODO: wire to CRM/email (routes to Mauricio). Preview build shows confirmation only.
-    setTimeout(() => { setBusy(false); setSent(true); }, 400);
+    setFailed(false);
+    const data = new FormData(e.target);
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
+          address: data.get('address'),
+          name: data.get('name'),
+          email: data.get('email'),
+          phone: data.get('phone'),
+          botcheck: data.get('botcheck'),
+          subject: 'New home valuation lead — Arper site',
+          from_name: 'The Arper Group website',
+          replyto: data.get('email'),
+          page: 'Home valuation form',
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setSent(true);
+      } else {
+        setFailed(true);
+      }
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (sent) {
@@ -139,9 +168,11 @@ export function ValuationForm({ lang, copy }) {
         <span>{c.phone}</span>
         <input name="phone" className="rounded-sm border border-black/20 bg-white px-3 py-2" />
       </label>
+      <input type="checkbox" name="botcheck" className="hidden" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
       <button disabled={busy} className="mt-2 justify-self-start rounded-sm bg-petrol px-5 py-2.5 text-sm font-medium text-cream hover:bg-[#243b49] disabled:opacity-60">
         {busy ? c.sending : c.submit}
       </button>
+      {failed && <p className="text-sm text-red-700">{copy.error}</p>}
       <p className="text-xs text-ink/60">{copy.compliance}</p>
     </form>
   );
