@@ -57,7 +57,7 @@ export default function CityGuide({ params }) {
             <h2 className="text-2xl md:text-3xl">
               {lang === 'es' ? `Propiedades en venta en ${c.name}` : `Homes for sale in ${c.name}`}
             </h2>
-            <a href={searchUrl(`rgv-${city}`)} className="rounded-sm bg-gold px-5 py-3 text-sm font-medium text-ink hover:bg-[#c9a96b]">
+            <a href={searchUrl(`rgv-${city}`, c.name)} className="rounded-sm bg-gold px-5 py-3 text-sm font-medium text-ink hover:bg-[#c9a96b]">
               {lang === 'es' ? 'Ver propiedades' : 'Search live listings'}
             </a>
           </div>
