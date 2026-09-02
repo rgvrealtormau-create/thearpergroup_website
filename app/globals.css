@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: #F7F3EC;
+  color: #2A2626;
+  font-family: var(--font-sans, '"Hanken Grotesk"', system-ui, sans-serif);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; line-height: 1.08; font-weight: 400; }
+
+.wrap { max-width: 68rem; margin-inline: auto; padding-inline: 1.25rem; }
+
+a { color: inherit; }
+
+.link-underline { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in { animation: fade .5s ease both; }
+}
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+:focus-visible { outline: 2px solid #2B4555; outline-offset: 2px; }
