@@ -21,7 +21,7 @@ export default function About({ params }) {
         <div className="mx-auto max-w-2xl overflow-hidden rounded-sm border border-ink/10 shadow-sm">
           <Image
             src="/team.jpg"
-            alt="Pam Perez and Mauricio Arredondo of The Arper Group"
+            alt="Pamela Perez and Mauricio Arredondo of The Arper Group"
             width={1400}
             height={1750}
             priority
