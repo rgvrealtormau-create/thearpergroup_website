@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BUSINESS, searchUrl, otherLang, swapLangInPath, WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import { BUSINESS, SOCIAL, searchUrl, otherLang, swapLangInPath, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import { nav, ui, footer as footerCopy } from '../lib/content';
 import { Logo, LogoLockup, AllianceLogo } from './Logo';
 
@@ -69,6 +69,19 @@ export function Header({ lang }) {
   );
 }
 
+function SocialGroup({ person }) {
+  return (
+    <div>
+      <div className="text-cream/70">{person.name}</div>
+      <ul className="mt-1 space-y-1">
+        <li><a className="link-underline" href={person.instagram} target="_blank" rel="noopener noreferrer">Instagram</a></li>
+        <li><a className="link-underline" href={person.facebook} target="_blank" rel="noopener noreferrer">Facebook</a></li>
+        <li><a className="link-underline" href={person.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a></li>
+      </ul>
+    </div>
+  );
+}
+
 export function Footer({ lang }) {
   const f = footerCopy[lang];
   return (
@@ -89,10 +102,13 @@ export function Footer({ lang }) {
         </div>
         <div className="text-sm">
           <div className="text-cream/90">{f.followUs}</div>
-          <ul className="mt-2 space-y-1">
-            <li><a className="link-underline" href={BUSINESS.instagram} target="_blank" rel="noopener">Instagram @realtor.mau</a></li>
-            <li><a className="link-underline" href={BUSINESS.googleBusiness} target="_blank" rel="noopener">Google Business Profile</a></li>
-          </ul>
+          <div className="mt-3 grid grid-cols-2 gap-6">
+            <SocialGroup person={SOCIAL.mau} />
+            <SocialGroup person={SOCIAL.pam} />
+          </div>
+          <p className="mt-4">
+            <a className="link-underline" href={BUSINESS.googleBusiness} target="_blank" rel="noopener noreferrer">Google Business Profile</a>
+          </p>
           <p className="mt-6 text-cream/60">{BUSINESS.city}, {BUSINESS.region}</p>
         </div>
       </div>

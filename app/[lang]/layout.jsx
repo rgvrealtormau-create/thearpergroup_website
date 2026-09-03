@@ -1,7 +1,7 @@
 import '../globals.css';
 import { Header, Footer } from '../../components/site';
 import JsonLd from '../../components/JsonLd';
-import { BUSINESS, BUSINESS_ID, pageAlternates } from '../../lib/site';
+import { BUSINESS, BUSINESS_ID, SAME_AS, pageAlternates } from '../../lib/site';
 import { halyard, larken } from '../../lib/fonts';
 
 export const dynamicParams = false;
@@ -37,8 +37,6 @@ export async function generateMetadata({ params }) {
 
 export default function LangLayout({ children, params }) {
   const lang = params.lang;
-  // Real Google-verified sameAs profiles only — no placeholder/unverified URLs.
-  const sameAs = [BUSINESS.instagram, BUSINESS.googleBusiness].filter(Boolean);
   const org = {
     '@context': 'https://schema.org',
     '@type': 'RealEstateAgent',
@@ -57,7 +55,7 @@ export default function LangLayout({ children, params }) {
       addressCountry: 'US',
     },
     parentOrganization: { '@type': 'Organization', name: BUSINESS.broker },
-    sameAs,
+    sameAs: SAME_AS,
     knowsLanguage: ['en', 'es'],
   };
   return (
