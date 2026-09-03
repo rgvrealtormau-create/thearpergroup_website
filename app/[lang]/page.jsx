@@ -30,10 +30,10 @@ export default function Home({ params }) {
           className="absolute inset-0"
           style={{ background: 'linear-gradient(to right, rgba(42,38,38,0.6), rgba(43,69,85,0.24) 60%)' }}
         />
-        <div className="wrap relative z-10 flex min-h-[640px] items-center justify-end py-16 pb-24 md:h-[90vh] md:min-h-[640px] md:py-0">
-          <div className="w-full rounded-sm border border-cream/[0.28] bg-petrol/[0.42] p-7 shadow-xl backdrop-blur-md sm:p-9 md:max-w-[520px]">
+        <div className="wrap relative z-10 flex min-h-[520px] items-end justify-center pb-24 pt-24 md:h-[90vh] md:min-h-[640px] md:items-center md:justify-end md:py-0">
+          <div className="w-full rounded-sm border border-cream/[0.28] bg-petrol/20 p-6 shadow-xl backdrop-blur-md sm:p-7 md:max-w-[560px] md:bg-petrol/30 md:p-8">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold">{c.heroEyebrow}</p>
-            <h1 className="mt-4 text-4xl leading-tight md:text-[52px]">
+            <h1 className="mt-3 text-[28px] leading-tight md:mt-4 md:text-4xl lg:text-[44px]">
               <span className="block">{c.heroLine1}</span>
               <span className="block">
                 {c.heroLine2Pre}
@@ -41,8 +41,8 @@ export default function Home({ params }) {
                 {c.heroLine2Post}
               </span>
             </h1>
-            <p className="mt-5 text-cream/85">{c.heroBody}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <p className="mt-4 text-cream/85">{c.heroBody}</p>
+            <div className="mt-6 flex flex-wrap gap-3">
               <a href={searchUrl('home-hero')} className="rounded-sm bg-cream px-5 py-3 text-sm font-medium text-petrol hover:bg-white">
                 {c.ctaFind}
               </a>
@@ -94,6 +94,34 @@ export default function Home({ params }) {
                 <p className="mt-2 text-ink/80">{c.lensPam.body}</p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Recent wins */}
+      <section className="bg-cream">
+        <div className="wrap py-16 md:py-20">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{c.winsKicker}</p>
+          <h2 className="mt-3 text-3xl md:text-4xl">
+            {c.winsTitlePre}
+            <span className="italic">{c.winsTitleAccent}</span>
+          </h2>
+          <p className="mt-3 max-w-xl text-ink/70">{c.winsBody}</p>
+          <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="relative aspect-[4/5] overflow-hidden rounded-sm">
+                <Image
+                  src={`/photos/win-${n}.jpg`}
+                  alt={lang === 'es' ? 'Casa vendida por The Arper Group en el Valle' : 'A home sold by The Arper Group in the Rio Grande Valley'}
+                  fill
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  className="object-cover"
+                />
+                <span className="absolute right-3 top-3 rounded-sm bg-petrol px-2.5 py-1 text-xs font-medium text-cream">
+                  {c.soldTag}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -151,6 +179,29 @@ export default function Home({ params }) {
               </Link>
             );
           })}
+        </div>
+      </section>
+
+      {/* Communities */}
+      <section className="relative overflow-hidden bg-ink text-cream">
+        <Image
+          src="/photos/community.jpg"
+          alt=""
+          aria-hidden="true"
+          fill
+          sizes="100vw"
+          className="object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(rgba(43,69,85,0.55), rgba(43,69,85,0.72))' }}
+        />
+        <div className="wrap relative z-10 py-24 text-center md:py-[150px]">
+          <h2 className="mx-auto max-w-2xl text-3xl md:text-4xl">
+            {c.communitiesTitlePre}
+            <span className="italic">{c.communitiesTitleAccent}</span>
+          </h2>
+          <p className="mx-auto mt-5 max-w-xl text-cream/85">{c.communitiesBody}</p>
         </div>
       </section>
 
