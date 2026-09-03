@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { ftb } from '../../../../lib/content';
-import { searchUrl } from '../../../../lib/site';
+import { searchUrl, pageAlternates } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 
 export async function generateMetadata({ params }) {
   const c = ftb[params.lang];
-  return { title: c.metaTitle, description: c.metaDesc };
+  return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang, 'buy/first-time-buyers') };
 }
 
 export default function FirstTimeBuyers({ params }) {
@@ -46,7 +46,7 @@ export default function FirstTimeBuyers({ params }) {
           <div className="mt-8 max-w-3xl divide-y divide-ink/15">
             {c.faqs.map((f) => (
               <div key={f.q} className="py-5">
-                <div className="font-display text-xl">{f.q}</div>
+                <h3 className="font-display text-xl">{f.q}</h3>
                 <p className="mt-2 text-ink/80">{f.a}</p>
               </div>
             ))}

@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { home, cities, citySlugs } from '../../lib/content';
-import { searchUrl } from '../../lib/site';
+import { searchUrl, pageAlternates } from '../../lib/site';
 import { SearchButton } from '../../components/site';
 
 // Where the italic (Larken) accent falls within each city name.
@@ -25,7 +25,7 @@ const CITIES_WITH_PHOTOS = new Set([
 
 export async function generateMetadata({ params }) {
   const c = home[params.lang];
-  return { title: c.metaTitle, description: c.metaDesc };
+  return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang) };
 }
 
 export default function Home({ params }) {
@@ -108,12 +108,12 @@ export default function Home({ params }) {
             <p className="mt-3 max-w-xl text-ink/70">{c.lensBody}</p>
             <div className="mt-8 space-y-8">
               <div className="border-t-2 border-petrol pt-4">
-                <div className="font-display text-2xl">{c.lensMau.name}</div>
+                <h3 className="font-display text-2xl">{c.lensMau.name}</h3>
                 <div className="italic text-petrol">{c.lensMau.role}</div>
                 <p className="mt-2 text-ink/80">{c.lensMau.body}</p>
               </div>
               <div className="border-t-2 border-clay pt-4">
-                <div className="font-display text-2xl">{c.lensPam.name}</div>
+                <h3 className="font-display text-2xl">{c.lensPam.name}</h3>
                 <div className="italic text-clay">{c.lensPam.role}</div>
                 <p className="mt-2 text-ink/80">{c.lensPam.body}</p>
               </div>
@@ -158,7 +158,7 @@ export default function Home({ params }) {
             {c.doors.map((d, i) => (
               <Link key={d.title} href={d.href} className="group flex flex-col border border-ink/15 bg-cream/40 p-6 transition-colors hover:border-petrol">
                 <div className="text-xs font-medium tracking-[0.2em] text-petrol">{String(i + 1).padStart(2, '0')}</div>
-                <div className="mt-3 font-display text-2xl">{d.title}</div>
+                <h3 className="mt-3 font-display text-2xl">{d.title}</h3>
                 <p className="mt-3 flex-1 text-sm text-ink/75">{d.body}</p>
                 <span className="mt-5 text-sm font-medium text-petrol link-underline">{d.cta}</span>
               </Link>
@@ -196,9 +196,9 @@ export default function Home({ params }) {
                       style={{ background: 'linear-gradient(to top, rgba(43,69,85,0.85) 0%, rgba(43,69,85,0.15) 55%, transparent 85%)' }}
                     />
                     <div className="relative flex h-full flex-col justify-end p-4">
-                      <div className="font-display text-lg text-cream md:text-xl">
+                      <h3 className="font-display text-lg text-cream md:text-xl">
                         {pre}<span className="italic">{accent}</span>
-                      </div>
+                      </h3>
                       <span className="mt-1 text-sm font-medium text-gold link-underline">
                         {c.viewArea} →
                       </span>
@@ -223,9 +223,9 @@ export default function Home({ params }) {
                     className="pointer-events-none absolute -right-6 -top-6 w-24 opacity-[0.12] select-none"
                   />
                   <div className="relative flex h-full flex-col justify-end p-4">
-                    <div className="font-display text-lg text-cream md:text-xl">
+                    <h3 className="font-display text-lg text-cream md:text-xl">
                       {pre}<span className="italic">{accent}</span>
-                    </div>
+                    </h3>
                     <span className="mt-1 text-sm text-cream/60">{c.photoComing}</span>
                   </div>
                 </Link>

@@ -1,20 +1,23 @@
 import { reviews, reviewsMeta } from '../../../lib/content';
-import { BUSINESS, searchUrl } from '../../../lib/site';
+import { BUSINESS, BUSINESS_ID, searchUrl, pageAlternates } from '../../../lib/site';
 import JsonLd from '../../../components/JsonLd';
 
 export async function generateMetadata({ params }) {
   const c = reviewsMeta[params.lang];
-  return { title: c.metaTitle, description: c.metaDesc };
+  return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang, 'reviews') };
 }
 
 export default function Reviews({ params }) {
   const lang = params.lang;
   const c = reviewsMeta[lang];
 
+  // Same @id as the layout's RealEstateAgent — this augments that entity with
+  // review data rather than declaring a second, duplicate one.
   // AggregateRating reflects the reviews actually shown on this page (Google policy).
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'RealEstateAgent',
+    '@id': BUSINESS_ID,
     name: BUSINESS.name,
     url: BUSINESS.url,
     aggregateRating: {

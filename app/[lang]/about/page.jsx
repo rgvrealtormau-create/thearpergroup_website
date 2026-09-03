@@ -1,9 +1,10 @@
 import Image from 'next/image';
 import { about } from '../../../lib/content';
+import { pageAlternates } from '../../../lib/site';
 
 export async function generateMetadata({ params }) {
   const c = about[params.lang];
-  return { title: c.metaTitle, description: c.metaDesc };
+  return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang, 'about') };
 }
 
 export default function About({ params }) {
@@ -48,7 +49,7 @@ export default function About({ params }) {
           <div className="mt-10 grid gap-8 md:grid-cols-3">
             {c.values.map((v) => (
               <div key={v.h} className="border-t-2 border-gold pt-4">
-                <div className="font-display text-xl">{v.h}</div>
+                <h3 className="font-display text-xl">{v.h}</h3>
                 <p className="mt-2 text-sm text-ink/75">{v.b}</p>
               </div>
             ))}
@@ -61,7 +62,7 @@ export default function About({ params }) {
         <div className="mt-10 grid gap-10 md:grid-cols-2">
           {c.people.map((p) => (
             <div key={p.name} className="border-t-2 border-petrol pt-5">
-              <div className="font-display text-2xl">{p.name}</div>
+              <h3 className="font-display text-2xl">{p.name}</h3>
               <div className="text-sm text-petrol">{p.role}</div>
               <p className="mt-3 text-ink/80">{p.b}</p>
             </div>

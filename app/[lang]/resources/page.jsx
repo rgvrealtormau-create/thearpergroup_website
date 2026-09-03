@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { resources } from '../../../lib/content';
+import { pageAlternates } from '../../../lib/site';
 
 export async function generateMetadata({ params }) {
   const c = resources[params.lang];
-  return { title: c.metaTitle, description: c.metaDesc };
+  return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang, 'resources') };
 }
 
 export default function Resources({ params }) {
@@ -19,6 +20,7 @@ export default function Resources({ params }) {
       </section>
 
       <section className="wrap py-16 md:py-20">
+        <h2 className="sr-only">{c.title}</h2>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {c.cards.map((card) =>
             card.live ? (
@@ -30,7 +32,7 @@ export default function Resources({ params }) {
                 <span className="inline-block w-fit rounded-sm bg-gold/25 px-2 py-1 text-xs font-medium uppercase tracking-wide text-clay">
                   {c.liveLabel}
                 </span>
-                <div className="mt-3 font-display text-2xl">{card.title}</div>
+                <h3 className="mt-3 font-display text-2xl">{card.title}</h3>
                 <p className="mt-3 flex-1 text-sm text-ink/75">{card.body}</p>
                 <span className="mt-5 text-sm font-medium text-petrol link-underline">{card.cta} →</span>
               </Link>
@@ -42,7 +44,7 @@ export default function Resources({ params }) {
                 <span className="inline-block w-fit rounded-sm bg-ink/10 px-2 py-1 text-xs font-medium uppercase tracking-wide text-ink/50">
                   {c.soonLabel}
                 </span>
-                <div className="mt-3 font-display text-2xl text-ink/70">{card.title}</div>
+                <h3 className="mt-3 font-display text-2xl text-ink/70">{card.title}</h3>
                 <p className="mt-3 flex-1 text-sm">{card.body}</p>
               </div>
             )

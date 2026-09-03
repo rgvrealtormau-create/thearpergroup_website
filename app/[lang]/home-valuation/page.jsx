@@ -1,9 +1,10 @@
 import { valuation } from '../../../lib/content';
 import { ValuationForm } from '../../../components/site';
+import { pageAlternates } from '../../../lib/site';
 
 export async function generateMetadata({ params }) {
   const c = valuation[params.lang];
-  return { title: c.metaTitle, description: c.metaDesc };
+  return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang, 'home-valuation') };
 }
 
 export default function HomeValuation({ params }) {

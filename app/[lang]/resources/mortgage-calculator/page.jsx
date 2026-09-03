@@ -1,11 +1,12 @@
-import { mortgageCalc } from '../../../../lib/content';
+import { mortgageCalc, resources } from '../../../../lib/content';
 import { getMortgageRates } from '../../../../lib/fred';
+import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 import MortgageCalculator from '../../../../components/MortgageCalculator';
 
 export async function generateMetadata({ params }) {
   const c = mortgageCalc[params.lang];
-  return { title: c.metaTitle, description: c.metaDesc };
+  return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang, 'resources/mortgage-calculator') };
 }
 
 export default async function MortgageCalculatorPage({ params }) {
@@ -22,9 +23,16 @@ export default async function MortgageCalculatorPage({ params }) {
     })),
   };
 
+  const breadcrumb = breadcrumbSchema([
+    { name: lang === 'es' ? 'Inicio' : 'Home', url: `${BUSINESS.url}/${lang}` },
+    { name: resources[lang].title, url: `${BUSINESS.url}/${lang}/resources` },
+    { name: c.title, url: `${BUSINESS.url}/${lang}/resources/mortgage-calculator` },
+  ]);
+
   return (
     <>
       <JsonLd data={faqSchema} />
+      <JsonLd data={breadcrumb} />
       <section className="bg-petrol text-cream">
         <div className="wrap py-16 md:py-20">
           <p className="text-sm text-cream/70">{c.kicker}</p>
@@ -43,7 +51,7 @@ export default async function MortgageCalculatorPage({ params }) {
           <div className="mt-8 max-w-3xl divide-y divide-ink/15">
             {c.faqs.map((f) => (
               <div key={f.q} className="py-5">
-                <div className="font-display text-xl">{f.q}</div>
+                <h3 className="font-display text-xl">{f.q}</h3>
                 <p className="mt-2 text-ink/80">{f.a}</p>
               </div>
             ))}

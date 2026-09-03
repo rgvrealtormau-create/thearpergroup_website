@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cities, citySlugs } from '../../../../lib/content';
-import { searchUrl, BUSINESS } from '../../../../lib/site';
+import { searchUrl, BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 
 export const dynamicParams = false;
@@ -14,7 +14,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }) {
   const c = cities[params.city]?.[params.lang];
   if (!c) return {};
-  return { title: c.metaTitle, description: c.metaDesc };
+  return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang, `rgv/${params.city}`) };
 }
 
 export default function CityGuide({ params }) {
@@ -27,9 +27,14 @@ export default function CityGuide({ params }) {
     name: `${c.name}, TX`,
     address: { '@type': 'PostalAddress', addressLocality: c.name, addressRegion: 'TX', addressCountry: 'US' },
   };
+  const breadcrumb = breadcrumbSchema([
+    { name: lang === 'es' ? 'Inicio' : 'Home', url: `${BUSINESS.url}/${lang}` },
+    { name: c.name, url: `${BUSINESS.url}/${lang}/rgv/${city}` },
+  ]);
   return (
     <>
       <JsonLd data={place} />
+      <JsonLd data={breadcrumb} />
       <section className="bg-petrol text-cream">
         <div className="wrap py-20">
           <p className="text-sm text-cream/70">{lang === 'es' ? 'Guía de zona' : 'Neighborhood guide'}</p>
