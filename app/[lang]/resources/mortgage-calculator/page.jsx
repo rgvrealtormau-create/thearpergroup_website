@@ -25,7 +25,7 @@ export default async function MortgageCalculatorPage({ params }) {
   return (
     <>
       <JsonLd data={faqSchema} />
-      <section className="bg-forest text-cream">
+      <section className="bg-petrol text-cream">
         <div className="wrap py-16 md:py-20">
           <p className="text-sm text-cream/70">{c.kicker}</p>
           <h1 className="mt-3 max-w-3xl text-4xl md:text-6xl italic">{c.title}</h1>

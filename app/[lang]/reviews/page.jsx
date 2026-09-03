@@ -34,7 +34,7 @@ export default function Reviews({ params }) {
   return (
     <>
       <JsonLd data={schema} />
-      <section className="bg-forest text-cream">
+      <section className="bg-petrol text-cream">
         <div className="wrap py-20">
           <h1 className="text-4xl md:text-6xl italic">{c.title}</h1>
           <p className="mt-5 text-lg text-cream/90">

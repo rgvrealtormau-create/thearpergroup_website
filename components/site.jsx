@@ -39,7 +39,7 @@ export function Header({ lang }) {
     <header className="sticky top-0 z-40 border-b border-black/10 bg-cream/95 backdrop-blur">
       <div className="wrap flex items-center justify-between gap-4 py-3">
         <Link href={`/${lang}`} aria-label="The Arper Group">
-          <Logo variant="petrol" className="h-14 w-auto" priority />
+          <Logo className="h-7 w-auto" priority />
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
           {items.map((it) => (

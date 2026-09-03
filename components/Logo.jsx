@@ -1,12 +1,12 @@
 import Image from 'next/image';
-import arperPetrol from '../public/brand/arper-blue.png';
+import wordmark from '../public/brand/wordmark-blue.png';
 import arperCream from '../public/brand/imagotipo-06.png';
 
-// Petrol mark for light backgrounds, cream mark for dark backgrounds.
-export function Logo({ variant = 'petrol', className = 'h-10 w-auto', priority = false }) {
+// Wordmark-only mark for the header (transparent petrol, natural size 1118x220).
+export function Logo({ className = 'h-7 w-auto', priority = false }) {
   return (
     <Image
-      src={variant === 'cream' ? arperCream : arperPetrol}
+      src={wordmark}
       alt="The Arper Group"
       className={className}
       priority={priority}

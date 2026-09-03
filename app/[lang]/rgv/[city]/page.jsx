@@ -30,7 +30,7 @@ export default function CityGuide({ params }) {
   return (
     <>
       <JsonLd data={place} />
-      <section className="bg-forest text-cream">
+      <section className="bg-petrol text-cream">
         <div className="wrap py-20">
           <p className="text-sm text-cream/70">{lang === 'es' ? 'Guía de zona' : 'Neighborhood guide'}</p>
           <h1 className="mt-3 text-4xl md:text-6xl italic">

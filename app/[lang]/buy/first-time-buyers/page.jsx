@@ -22,7 +22,7 @@ export default function FirstTimeBuyers({ params }) {
   return (
     <>
       <JsonLd data={faqSchema} />
-      <section className="bg-forest text-cream">
+      <section className="bg-petrol text-cream">
         <div className="wrap py-20">
           <h1 className="max-w-3xl text-4xl md:text-6xl italic">{c.title}</h1>
           <p className="mt-6 max-w-2xl text-lg text-cream/85">{c.lede}</p>
