@@ -17,36 +17,47 @@ export default function Home({ params }) {
   return (
     <>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-petrol text-cream">
+      <section className="relative overflow-hidden bg-ink text-cream">
         <Image
-          src="/brand/imagotipo-06.png"
-          alt=""
-          aria-hidden="true"
-          width={900}
-          height={900}
-          className="pointer-events-none absolute -right-16 top-1/2 z-0 hidden w-[34rem] -translate-y-1/2 opacity-[0.08] select-none md:block lg:w-[42rem]"
+          src="/photos/hero.jpg"
+          alt={c.heroAlt}
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
         />
-        <div className="wrap relative z-10 py-20 md:py-28">
-          <p className="text-sm text-cream/70">{c.heroKicker}</p>
-          <h1 className="mt-4 max-w-3xl text-4xl leading-tight md:text-6xl">
-            <span className="block">{c.heroLine1}</span>
-            <span className="block">
-              {c.heroLine2Pre}
-              <span className="italic">{c.heroLine2Accent}</span>
-              {c.heroLine2Post}
-            </span>
-          </h1>
-          <p className="mt-6 max-w-xl text-lg text-cream/85">{c.heroBody}</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href={`/${lang}/home-valuation`} className="rounded-sm bg-cream px-5 py-3 text-sm font-medium text-petrol hover:bg-white">
-              {c.ctaValue}
-            </Link>
-            <a href={searchUrl('home-hero')} className="rounded-sm border border-cream/40 px-5 py-3 text-sm font-medium text-cream hover:bg-cream/10">
-              {c.ctaSearch}
-            </a>
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to right, rgba(42,38,38,0.6), rgba(43,69,85,0.24) 60%)' }}
+        />
+        <div className="wrap relative z-10 flex min-h-[640px] items-center justify-end py-16 pb-24 md:h-[90vh] md:min-h-[640px] md:py-0">
+          <div className="w-full rounded-sm border border-cream/[0.28] bg-petrol/[0.42] p-7 shadow-xl backdrop-blur-md sm:p-9 md:max-w-[520px]">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-gold">{c.heroEyebrow}</p>
+            <h1 className="mt-4 text-4xl leading-tight md:text-[52px]">
+              <span className="block">{c.heroLine1}</span>
+              <span className="block">
+                {c.heroLine2Pre}
+                <span className="italic">{c.heroLine2Accent}</span>
+                {c.heroLine2Post}
+              </span>
+            </h1>
+            <p className="mt-5 text-cream/85">{c.heroBody}</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a href={searchUrl('home-hero')} className="rounded-sm bg-cream px-5 py-3 text-sm font-medium text-petrol hover:bg-white">
+                {c.ctaFind}
+              </a>
+              <Link href={`/${lang}/home-valuation`} className="rounded-sm border border-cream/40 px-5 py-3 text-sm font-medium text-cream hover:bg-cream/10">
+                {c.ctaValue}
+              </Link>
+            </div>
           </div>
-          <Link href={`/${lang}/reviews`} className="mt-6 inline-block text-sm text-cream/80 link-underline">
-            <span className="text-gold">★★★★★</span>{' '}
+        </div>
+        <div className="wrap absolute inset-x-0 bottom-6 z-10 md:bottom-8">
+          <Link
+            href={`/${lang}/reviews`}
+            className="inline-flex items-center gap-2 rounded-sm border border-cream/[0.28] bg-petrol/[0.42] px-4 py-2 text-sm text-cream backdrop-blur-md link-underline"
+          >
+            <span className="text-gold">★★★★★</span>
             {lang === 'es' ? '5.0 · 21 reseñas de Google' : '5.0 · 21 Google reviews'}
           </Link>
         </div>
