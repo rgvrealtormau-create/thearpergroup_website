@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BUSINESS, searchUrl, otherLang, swapLangInPath, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import { nav, ui, footer as footerCopy } from '../lib/content';
-import { Logo, LogoLockup } from './Logo';
+import { Logo, LogoLockup, AllianceLogo } from './Logo';
 
 export function SearchButton({ lang, campaign = 'nav', className = '', variant = 'gold' }) {
   const variants = {
@@ -79,10 +79,11 @@ export function Footer({ lang }) {
           <p className="mt-4 max-w-xs text-sm text-cream/80 italic">{f.tagline}</p>
         </div>
         <div className="text-sm">
-          <p className="text-cream/90">{f.brokerLine}</p>
+          <AllianceLogo className="h-12 w-auto" />
+          <p className="mt-3 text-cream/90">{f.brokerLine}</p>
           <p className="mt-4 text-cream/70">{f.trec}</p>
           <ul className="mt-2 space-y-1">
-            <li><a className="link-underline" href="https://www.trec.texas.gov/forms/information-about-brokerage-services" target="_blank" rel="noopener">{f.iab}</a></li>
+            <li><a className="link-underline" href="https://drive.google.com/file/d/1FjegoP-dupXJXuQMlJKE_MTZPcXdjy4r/view" target="_blank" rel="noopener noreferrer">{f.iab}</a></li>
             <li><a className="link-underline" href="https://www.trec.texas.gov/forms/consumer-protection-notice" target="_blank" rel="noopener">{f.cpn}</a></li>
           </ul>
         </div>
