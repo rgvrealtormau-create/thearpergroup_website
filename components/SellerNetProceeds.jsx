@@ -62,7 +62,7 @@ export default function SellerNetProceeds({ lang, copy }) {
 
   const [salePrice, setSalePrice] = useState(300000);
   const [loanPayoff, setLoanPayoff] = useState(0);
-  const [commissionPercent, setCommissionPercent] = useState(5.9);
+  const [commissionPercent, setCommissionPercent] = useState(6);
   const [city, setCity] = useState('mcallen');
   const [closingDate, setClosingDate] = useState('');
   const [buyerPaysTitle, setBuyerPaysTitle] = useState(false);
@@ -72,6 +72,7 @@ export default function SellerNetProceeds({ lang, copy }) {
   const [hoaFee, setHoaFee] = useState(0);
   const [homeWarranty, setHomeWarranty] = useState(0);
   const [closingFees, setClosingFees] = useState(350);
+  const [sellerConcessions, setSellerConcessions] = useState(0);
 
   // Closing date defaults to ~45 days out, set client-side only to avoid a
   // build-time vs. render-time date mismatch.
@@ -92,7 +93,7 @@ export default function SellerNetProceeds({ lang, copy }) {
   const commissionCost = Math.round((salePrice * commissionPercent) / 100);
 
   const netProceeds =
-    salePrice - loanPayoff - commissionCost - titleCost - taxCredit - hoaFee - homeWarranty - closingFees;
+    salePrice - loanPayoff - commissionCost - titleCost - taxCredit - hoaFee - homeWarranty - closingFees - sellerConcessions;
 
   const [showLead, setShowLead] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
@@ -113,6 +114,7 @@ export default function SellerNetProceeds({ lang, copy }) {
       `Owner's title policy: ${buyerPaysTitle ? 'buyer-paid' : usd.format(titlePremium)}`,
       `Property tax credit to buyer: ${usd.format(taxCredit)}`,
       `HOA fee: ${usd.format(hoaFee)}, Home warranty: ${usd.format(homeWarranty)}, Closing/recording fees: ${usd.format(closingFees)}`,
+      `Seller concessions: ${usd.format(sellerConcessions)}`,
       `Estimated net proceeds: ${usd.format(netProceeds)}`,
     ].join('\n');
     try {
@@ -305,6 +307,21 @@ export default function SellerNetProceeds({ lang, copy }) {
                 </div>
                 <span className="text-xs text-ink/50">{copy.closingFeesNote}</span>
               </label>
+
+              <label className="grid gap-1 text-sm">
+                <span>{L.sellerConcessions}</span>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={sellerConcessions}
+                    onChange={(e) => setSellerConcessions(Math.max(Number(e.target.value) || 0, 0))}
+                    className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
+                  />
+                </div>
+                <span className="text-xs text-ink/50">{copy.concessionsNote}</span>
+              </label>
             </div>
           )}
         </div>
@@ -325,6 +342,7 @@ export default function SellerNetProceeds({ lang, copy }) {
             {hoaFee > 0 && <Row label={`– ${R.hoaFee}`} value={usd.format(hoaFee)} />}
             {homeWarranty > 0 && <Row label={`– ${R.homeWarranty}`} value={usd.format(homeWarranty)} />}
             {closingFees > 0 && <Row label={`– ${R.closingFees}`} value={usd.format(closingFees)} />}
+            {sellerConcessions > 0 && <Row label={`– ${R.sellerConcessions}`} value={usd.format(sellerConcessions)} />}
           </div>
 
           <div className="mt-6 border-t border-ink/10 pt-4 text-sm">
