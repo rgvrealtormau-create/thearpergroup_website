@@ -43,6 +43,9 @@ export default function CityGuide({ params }) {
             {lang === 'es' ? `Vivir en ${c.name}` : `Living in ${c.name}`}
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-cream/85">{c.intro}</p>
+          <a href={searchUrl(`rgv-${city}`, c.name)} className="mt-8 inline-flex items-center justify-center rounded-sm bg-gold px-5 py-3 text-sm font-medium text-ink hover:bg-[#c9a96b]">
+            {lang === 'es' ? 'Ver propiedades' : 'Search live listings'}
+          </a>
         </div>
       </section>
 

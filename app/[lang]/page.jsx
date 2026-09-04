@@ -45,9 +45,9 @@ export default function Home({ params }) {
               <a href={searchUrl('home-hero')} className="rounded-sm bg-cream px-5 py-3 text-sm font-medium text-petrol hover:bg-white">
                 {c.ctaFind}
               </a>
-              <Link href={`/${lang}/home-valuation`} className="rounded-sm border border-cream/40 px-5 py-3 text-sm font-medium text-cream hover:bg-cream/10">
+              <a href="https://www.aregtx.com/home_value" className="rounded-sm border border-cream/40 px-5 py-3 text-sm font-medium text-cream hover:bg-cream/10">
                 {c.ctaValue}
-              </Link>
+              </a>
             </div>
           </div>
         </div>
@@ -202,9 +202,9 @@ export default function Home({ params }) {
           <h2 className="mt-6 max-w-2xl text-3xl md:text-4xl">{c.closingTitle}</h2>
           <div className="mt-8 flex flex-wrap gap-3">
             <SearchButton lang={lang} campaign="home-closing" />
-            <Link href={`/${lang}/home-valuation`} className="rounded-sm border border-ink/25 px-4 py-2 text-sm font-medium hover:border-petrol">
+            <a href="https://www.aregtx.com/home_value" className="rounded-sm border border-ink/25 px-4 py-2 text-sm font-medium hover:border-petrol">
               {c.ctaValue}
-            </Link>
+            </a>
           </div>
           <p className="mt-8 max-w-2xl text-sm text-ink/60">{c.biling}</p>
         </div>
