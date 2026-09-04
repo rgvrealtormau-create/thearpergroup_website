@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { cities, citySlugs } from '../../../../lib/content';
 import { searchUrl, BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
+import LocalFavorites from '../../../../components/LocalFavorites';
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -55,6 +56,8 @@ export default function CityGuide({ params }) {
           ))}
         </div>
       </section>
+
+      <LocalFavorites picks={c.picks} cityName={c.name} lang={lang} />
 
       <section className="bg-cream">
         <div className="wrap py-14">
