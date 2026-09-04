@@ -27,6 +27,19 @@ const DEFAULT_ANNUAL_INSURANCE = 1800;
 // exceed the sale price. tdi.texas.gov/title/titlem3b.html
 const SIMULTANEOUS_LOAN_POLICY_RATE = 100;
 
+// Texas' promulgated (state-set) basic premium rate for an owner's title
+// policy, effective March 1, 2026 (tdi.texas.gov/title/titlerates2026.html).
+// Only relevant here if the buyer is also covering the seller's customary
+// owner's policy — kept in sync with the same formula in SellerNetProceeds.jsx.
+function ownerTitlePremium(amount) {
+  if (amount <= 0) return 0;
+  if (amount <= 25000) return 308;
+  if (amount <= 100000) return Math.round(308 + (amount - 25000) * ((780 - 308) / 75000));
+  if (amount <= 1000000) return Math.round(780 + (amount - 100000) * 0.00494);
+  if (amount <= 5000000) return Math.round(5226 + (amount - 1000000) * 0.00406);
+  return Math.round(21466 + (amount - 5000000) * 0.00335);
+}
+
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 
@@ -78,6 +91,7 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
   const [taxTouched, setTaxTouched] = useState(false);
   const [hoaFee, setHoaFee] = useState(0);
   const [surveyFee, setSurveyFee] = useState(0);
+  const [buyerPaysOwnerPolicy, setBuyerPaysOwnerPolicy] = useState(false);
 
   useEffect(() => {
     if (!closingDate) setClosingDate(defaultClosingDate());
@@ -99,10 +113,12 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
     [loanAmount, rate, closingDate]
   );
   const escrowReserve = Math.round(((annualTax + homeInsurance) / 12) * escrowMonths);
+  const ownerPolicyPremium = useMemo(() => ownerTitlePremium(salePrice), [salePrice]);
 
   const closingCostsSubtotal =
     originationCost + appraisalFee + lenderFees + SIMULTANEOUS_LOAN_POLICY_RATE + recordingFees +
-    homeInsurance + interestCost + escrowReserve + hoaFee + surveyFee;
+    homeInsurance + interestCost + escrowReserve + hoaFee + surveyFee +
+    (buyerPaysOwnerPolicy ? ownerPolicyPremium : 0);
   const totalCashToClose = downDollar + closingCostsSubtotal;
 
   const rateNoteText = rates.live && !rateTouched ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
@@ -126,6 +142,7 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
       `Closing date: ${closingDate}`,
       `Origination: ${usd.format(originationCost)}, Appraisal: ${usd.format(appraisalFee)}, Other lender fees: ${usd.format(lenderFees)}`,
       `Loan title policy: ${usd.format(SIMULTANEOUS_LOAN_POLICY_RATE)}, Recording: ${usd.format(recordingFees)}`,
+      ...(buyerPaysOwnerPolicy ? [`Owner's title policy (buyer-paid): ${usd.format(ownerPolicyPremium)}`] : []),
       `Homeowners insurance: ${usd.format(homeInsurance)}, Prepaid interest: ${usd2.format(interestCost)}, Escrow reserve: ${usd.format(escrowReserve)}`,
       `HOA fee: ${usd.format(hoaFee)}, Survey: ${usd.format(surveyFee)}`,
       `Estimated closing costs subtotal: ${usd.format(closingCostsSubtotal)}`,
@@ -363,6 +380,22 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 <span className="text-xs text-ink/50">{copy.titlePolicyNote}</span>
               </label>
 
+              <label className="flex items-start gap-2 text-sm sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={buyerPaysOwnerPolicy}
+                  onChange={(e) => setBuyerPaysOwnerPolicy(e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="block">{L.buyerPaysOwnerPolicy}</span>
+                  {buyerPaysOwnerPolicy && (
+                    <span className="mt-1 block text-sm font-medium text-ink">{usd.format(ownerPolicyPremium)}</span>
+                  )}
+                  <span className="mt-1 block text-xs text-ink/50">{copy.ownerPolicyNote}</span>
+                </span>
+              </label>
+
               <label className="grid gap-1 text-sm">
                 <span>{L.hoaFee}</span>
                 <div className="relative">
@@ -412,6 +445,7 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
             {appraisalFee > 0 && <Row label={R.appraisal} value={usd.format(appraisalFee)} />}
             {lenderFees > 0 && <Row label={R.lenderFees} value={usd.format(lenderFees)} />}
             <Row label={R.titlePolicy} value={usd.format(SIMULTANEOUS_LOAN_POLICY_RATE)} />
+            {buyerPaysOwnerPolicy && <Row label={R.ownerPolicyPremium} value={usd.format(ownerPolicyPremium)} />}
             {recordingFees > 0 && <Row label={R.recordingFees} value={usd.format(recordingFees)} />}
             {homeInsurance > 0 && <Row label={R.homeInsurance} value={usd.format(homeInsurance)} />}
             {interestCost > 0 && <Row label={R.prepaidInterest} value={usd2.format(interestCost)} />}
