@@ -7,6 +7,7 @@ import { BUSINESS } from '../lib/site';
 const STATIC_PATHS = [
   { path: '', changeFrequency: 'daily', priority: 1.0 },
   { path: 'resources/mortgage-calculator', changeFrequency: 'daily', priority: 0.9 },
+  { path: 'resources/seller-net-proceeds', changeFrequency: 'daily', priority: 0.9 },
   { path: 'home-valuation', changeFrequency: 'monthly', priority: 0.8 },
   { path: 'rgv', changeFrequency: 'weekly', priority: 0.8 },
   { path: 'resources', changeFrequency: 'weekly', priority: 0.7 },
