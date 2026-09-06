@@ -1,7 +1,7 @@
 import '../globals.css';
 import { Header, Footer } from '../../components/site';
 import JsonLd from '../../components/JsonLd';
-import { BUSINESS, BUSINESS_ID, SAME_AS, pageAlternates } from '../../lib/site';
+import { BUSINESS, BUSINESS_ID, WEBSITE_ID, MAU_ID, PAM_ID, SAME_AS, SOCIAL, LANGS, pageAlternates } from '../../lib/site';
 import { halyard, larken } from '../../lib/fonts';
 
 export const dynamicParams = false;
@@ -56,12 +56,47 @@ export default function LangLayout({ children, params }) {
     },
     parentOrganization: { '@type': 'Organization', name: BUSINESS.broker },
     sameAs: SAME_AS,
-    knowsLanguage: ['en', 'es'],
+    knowsLanguage: LANGS,
+    employee: [{ '@id': MAU_ID }, { '@id': PAM_ID }],
+  };
+  const website = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': WEBSITE_ID,
+    url: `${BUSINESS.url}/`,
+    name: BUSINESS.name,
+    inLanguage: LANGS,
+    publisher: { '@id': BUSINESS_ID },
+  };
+  const mauricio = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    '@id': MAU_ID,
+    name: 'Mauricio Arredondo',
+    jobTitle: 'Real Estate Agent',
+    worksFor: { '@id': BUSINESS_ID },
+    telephone: BUSINESS.phone,
+    url: `${BUSINESS.url}/en/about`,
+    sameAs: [SOCIAL.mau.instagram, SOCIAL.mau.facebook, SOCIAL.mau.tiktok],
+  };
+  const pamela = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    '@id': PAM_ID,
+    name: 'Pamela Perez',
+    jobTitle: 'Real Estate Agent',
+    worksFor: { '@id': BUSINESS_ID },
+    telephone: BUSINESS.phonePamTel,
+    url: `${BUSINESS.url}/en/about`,
+    sameAs: [SOCIAL.pam.instagram, SOCIAL.pam.facebook, SOCIAL.pam.tiktok],
   };
   return (
     <html lang={lang} className={`${halyard.variable} ${larken.variable}`}>
       <body>
         <JsonLd data={org} />
+        <JsonLd data={website} />
+        <JsonLd data={mauricio} />
+        <JsonLd data={pamela} />
         <Header lang={lang} />
         <main>{children}</main>
         <Footer lang={lang} />
