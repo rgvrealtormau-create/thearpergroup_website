@@ -20,44 +20,49 @@ function taxRateFor(city) {
   return AREA_TAX_RATES[city] ?? AREA_TAX_RATES.other;
 }
 
+function num(v) {
+  return parseFloat(v) || 0;
+}
+
 export default function MortgageCalculator({ lang, copy, rates }) {
   const L = copy.labels;
   const R = copy.results;
 
-  const [homePrice, setHomePrice] = useState(300000);
+  const [homePrice, setHomePrice] = useState('300000');
   const [downPercent, setDownPercent] = useState(20);
+  const [downStr, setDownStr] = useState('20');
   const [downMode, setDownMode] = useState('percent');
-  const [rate, setRate] = useState(rates.rate30);
+  const [rate, setRate] = useState(String(rates.rate30));
   const [rateTouched, setRateTouched] = useState(false);
   const [term, setTerm] = useState(30);
   const [city, setCity] = useState('mcallen');
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [tax, setTax] = useState(() => Math.round(300000 * taxRateFor('mcallen')));
+  const [tax, setTax] = useState(() => String(Math.round(300000 * taxRateFor('mcallen'))));
   const [taxTouched, setTaxTouched] = useState(false);
-  const [insurance, setInsurance] = useState(1800);
-  const [hoa, setHoa] = useState(0);
-  const [pmi, setPmi] = useState(0);
+  const [insurance, setInsurance] = useState('1800');
+  const [hoa, setHoa] = useState('0');
+  const [pmi, setPmi] = useState('0');
   const [pmiTouched, setPmiTouched] = useState(false);
 
-  const downDollar = useMemo(() => Math.round((homePrice * downPercent) / 100), [homePrice, downPercent]);
+  const downDollar = useMemo(() => Math.round((num(homePrice) * downPercent) / 100), [homePrice, downPercent]);
 
   // Property tax defaults to home price x the area rate, until the field is edited by hand.
   useEffect(() => {
-    setTax(Math.round(homePrice * taxRateFor(city)));
+    setTax(String(Math.round(num(homePrice) * taxRateFor(city))));
     setTaxTouched(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city]);
 
   useEffect(() => {
-    if (!taxTouched) setTax(Math.round(homePrice * taxRateFor(city)));
+    if (!taxTouched) setTax(String(Math.round(num(homePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [homePrice]);
 
   // PMI auto-applies under 20% down, until the field is edited by hand.
   useEffect(() => {
     if (!pmiTouched) {
-      const loanAmount = Math.max(homePrice - downDollar, 0);
-      setPmi(downPercent < 20 ? Math.round(loanAmount * PMI_ANNUAL_RATE) : 0);
+      const loanAmount = Math.max(num(homePrice) - downDollar, 0);
+      setPmi(String(downPercent < 20 ? Math.round(loanAmount * PMI_ANNUAL_RATE) : 0));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [homePrice, downDollar, downPercent, pmiTouched]);
@@ -66,13 +71,13 @@ export default function MortgageCalculator({ lang, copy, rates }) {
     setTerm(nextTerm);
     if (!rateTouched) {
       const nextRate = nextTerm === 30 ? rates.rate30 : nextTerm === 15 ? rates.rate15 : Math.round(((rates.rate30 + rates.rate15) / 2) * 100) / 100;
-      setRate(nextRate);
+      setRate(String(nextRate));
     }
   }
 
   // Amortization math
-  const loanAmount = Math.max(homePrice - downDollar, 0);
-  const monthlyRate = rate / 100 / 12;
+  const loanAmount = Math.max(num(homePrice) - downDollar, 0);
+  const monthlyRate = num(rate) / 100 / 12;
   const numPayments = term * 12;
   let principalInterest;
   if (!numPayments) {
@@ -85,10 +90,10 @@ export default function MortgageCalculator({ lang, copy, rates }) {
   }
   if (!isFinite(principalInterest) || isNaN(principalInterest)) principalInterest = 0;
 
-  const monthlyTax = tax / 12;
-  const monthlyInsurance = insurance / 12;
-  const monthlyHoa = hoa;
-  const monthlyPmi = pmi / 12;
+  const monthlyTax = num(tax) / 12;
+  const monthlyInsurance = num(insurance) / 12;
+  const monthlyHoa = num(hoa);
+  const monthlyPmi = num(pmi) / 12;
   const totalMonthly = principalInterest + monthlyTax + monthlyInsurance + monthlyHoa + monthlyPmi;
   const totalInterest = Math.max(principalInterest * numPayments - loanAmount, 0);
 
@@ -109,9 +114,9 @@ export default function MortgageCalculator({ lang, copy, rates }) {
     setLeadFailed(false);
     const data = new FormData(e.target);
     const message = [
-      `Home price: ${usd.format(homePrice)}`,
+      `Home price: ${usd.format(num(homePrice))}`,
       `Down payment: ${usd.format(downDollar)} (${round1(downPercent)}%)`,
-      `Rate: ${rate}% / ${term} yr`,
+      `Rate: ${num(rate)}% / ${term} yr`,
       `City: ${cityName}`,
       `Principal & interest: ${usd2.format(principalInterest)}/mo`,
       `Taxes: ${usd2.format(monthlyTax)}/mo, Insurance: ${usd2.format(monthlyInsurance)}/mo, PMI: ${usd2.format(monthlyPmi)}/mo, HOA: ${usd2.format(monthlyHoa)}/mo`,
@@ -151,11 +156,9 @@ export default function MortgageCalculator({ lang, copy, rates }) {
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
             <input
-              type="number"
-              min="0"
-              step="1000"
+              inputMode="decimal"
               value={homePrice}
-              onChange={(e) => setHomePrice(Math.max(Number(e.target.value) || 0, 0))}
+              onChange={(e) => setHomePrice(e.target.value.replace(/[^0-9.]/g, ''))}
               className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
             />
           </div>
@@ -169,14 +172,14 @@ export default function MortgageCalculator({ lang, copy, rates }) {
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
               )}
               <input
-                type="number"
-                min="0"
-                step={downMode === 'percent' ? '1' : '1000'}
-                value={downMode === 'percent' ? round1(downPercent) : downDollar}
+                inputMode="decimal"
+                value={downStr}
                 onChange={(e) => {
-                  const v = Math.max(Number(e.target.value) || 0, 0);
+                  const raw = e.target.value.replace(/[^0-9.]/g, '');
+                  setDownStr(raw);
+                  const v = num(raw);
                   if (downMode === 'percent') setDownPercent(v);
-                  else setDownPercent(homePrice > 0 ? (v / homePrice) * 100 : 0);
+                  else setDownPercent(num(homePrice) > 0 ? (v / num(homePrice)) * 100 : 0);
                 }}
                 className={`w-full rounded-sm border border-black/20 bg-white py-2 pr-3 ${downMode === 'dollar' ? 'pl-7' : 'pl-3'}`}
               />
@@ -187,14 +190,20 @@ export default function MortgageCalculator({ lang, copy, rates }) {
             <div className="flex overflow-hidden rounded-sm border border-black/20 text-xs font-medium">
               <button
                 type="button"
-                onClick={() => setDownMode('percent')}
+                onClick={() => {
+                  setDownMode('percent');
+                  setDownStr(String(round1(downPercent)));
+                }}
                 className={`px-3 ${downMode === 'percent' ? 'bg-petrol text-cream' : 'bg-white text-ink/60 hover:bg-black/5'}`}
               >
                 %
               </button>
               <button
                 type="button"
-                onClick={() => setDownMode('dollar')}
+                onClick={() => {
+                  setDownMode('dollar');
+                  setDownStr(String(downDollar));
+                }}
                 className={`px-3 ${downMode === 'dollar' ? 'bg-petrol text-cream' : 'bg-white text-ink/60 hover:bg-black/5'}`}
               >
                 $
@@ -208,12 +217,10 @@ export default function MortgageCalculator({ lang, copy, rates }) {
           <span>{L.interestRate}</span>
           <div className="relative max-w-[10rem]">
             <input
-              type="number"
-              min="0"
-              step="0.01"
+              inputMode="decimal"
               value={rate}
               onChange={(e) => {
-                setRate(Math.max(Number(e.target.value) || 0, 0));
+                setRate(e.target.value.replace(/[^0-9.]/g, ''));
                 setRateTouched(true);
               }}
               className="w-full rounded-sm border border-black/20 bg-white py-2 pl-3 pr-7"
@@ -271,11 +278,10 @@ export default function MortgageCalculator({ lang, copy, rates }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
-                    value={Math.round(tax)}
+                    inputMode="decimal"
+                    value={tax}
                     onChange={(e) => {
-                      setTax(Math.max(Number(e.target.value) || 0, 0));
+                      setTax(e.target.value.replace(/[^0-9.]/g, ''));
                       setTaxTouched(true);
                     }}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
@@ -289,10 +295,9 @@ export default function MortgageCalculator({ lang, copy, rates }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={insurance}
-                    onChange={(e) => setInsurance(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setInsurance(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -303,10 +308,9 @@ export default function MortgageCalculator({ lang, copy, rates }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={hoa}
-                    onChange={(e) => setHoa(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setHoa(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -317,11 +321,10 @@ export default function MortgageCalculator({ lang, copy, rates }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
-                    value={Math.round(pmi)}
+                    inputMode="decimal"
+                    value={pmi}
                     onChange={(e) => {
-                      setPmi(Math.max(Number(e.target.value) || 0, 0));
+                      setPmi(e.target.value.replace(/[^0-9.]/g, ''));
                       setPmiTouched(true);
                     }}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"

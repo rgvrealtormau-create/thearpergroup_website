@@ -36,6 +36,10 @@ function round1(n) {
   return Math.round(n * 10) / 10;
 }
 
+function num(v) {
+  return parseFloat(v) || 0;
+}
+
 function defaultClosingDate() {
   const d = new Date();
   d.setDate(d.getDate() + 45);
@@ -60,19 +64,19 @@ export default function SellerNetProceeds({ lang, copy }) {
   const L = copy.labels;
   const R = copy.results;
 
-  const [salePrice, setSalePrice] = useState(300000);
-  const [loanPayoff, setLoanPayoff] = useState(0);
-  const [commissionPercent, setCommissionPercent] = useState(6);
+  const [salePrice, setSalePrice] = useState('300000');
+  const [loanPayoff, setLoanPayoff] = useState('0');
+  const [commissionPercent, setCommissionPercent] = useState('6');
   const [city, setCity] = useState('mcallen');
   const [closingDate, setClosingDate] = useState('');
   const [buyerPaysTitle, setBuyerPaysTitle] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [annualTax, setAnnualTax] = useState(() => Math.round(300000 * taxRateFor('mcallen')));
+  const [annualTax, setAnnualTax] = useState(() => String(Math.round(300000 * taxRateFor('mcallen'))));
   const [taxTouched, setTaxTouched] = useState(false);
-  const [hoaFee, setHoaFee] = useState(0);
-  const [homeWarranty, setHomeWarranty] = useState(0);
-  const [closingFees, setClosingFees] = useState(350);
-  const [sellerConcessions, setSellerConcessions] = useState(0);
+  const [hoaFee, setHoaFee] = useState('0');
+  const [homeWarranty, setHomeWarranty] = useState('0');
+  const [closingFees, setClosingFees] = useState('350');
+  const [sellerConcessions, setSellerConcessions] = useState('0');
 
   // Closing date defaults to ~45 days out, set client-side only to avoid a
   // build-time vs. render-time date mismatch.
@@ -82,18 +86,21 @@ export default function SellerNetProceeds({ lang, copy }) {
   }, []);
 
   useEffect(() => {
-    if (!taxTouched) setAnnualTax(Math.round(salePrice * taxRateFor(city)));
+    if (!taxTouched) setAnnualTax(String(Math.round(num(salePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [salePrice, city]);
 
   const cityName = city === 'other' ? L.otherCity : cities[city]?.[lang]?.name ?? city;
-  const titlePremium = useMemo(() => ownerTitlePremium(salePrice), [salePrice]);
+  const titlePremium = useMemo(() => ownerTitlePremium(num(salePrice)), [salePrice]);
   const titleCost = buyerPaysTitle ? 0 : titlePremium;
-  const taxCredit = useMemo(() => taxProration(annualTax, closingDate), [annualTax, closingDate]);
-  const commissionCost = Math.round((salePrice * commissionPercent) / 100);
+  const taxCredit = useMemo(() => taxProration(num(annualTax), closingDate), [annualTax, closingDate]);
+  const commissionCost = Math.round((num(salePrice) * num(commissionPercent)) / 100);
 
   const netProceeds =
-    salePrice - loanPayoff - commissionCost - titleCost - taxCredit - hoaFee - homeWarranty - closingFees - sellerConcessions;
+    num(salePrice) - num(loanPayoff) - commissionCost - titleCost - taxCredit - num(hoaFee) - num(homeWarranty) - num(closingFees) - num(sellerConcessions);
+  const isShort = netProceeds < 0;
+  const resultLabel = isShort ? R.cashNeeded : R.net;
+  const resultValue = usd.format(Math.abs(netProceeds));
 
   const [showLead, setShowLead] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
@@ -106,16 +113,16 @@ export default function SellerNetProceeds({ lang, copy }) {
     setLeadFailed(false);
     const data = new FormData(e.target);
     const message = [
-      `Sale price: ${usd.format(salePrice)}`,
-      `Loan payoff: ${usd.format(loanPayoff)}`,
-      `Commission: ${usd.format(commissionCost)} (${round1(commissionPercent)}%)`,
+      `Sale price: ${usd.format(num(salePrice))}`,
+      `Loan payoff: ${usd.format(num(loanPayoff))}`,
+      `Commission: ${usd.format(commissionCost)} (${round1(num(commissionPercent))}%)`,
       `City: ${cityName}`,
       `Closing date: ${closingDate}`,
       `Owner's title policy: ${buyerPaysTitle ? 'buyer-paid' : usd.format(titlePremium)}`,
       `Property tax credit to buyer: ${usd.format(taxCredit)}`,
-      `HOA fee: ${usd.format(hoaFee)}, Home warranty: ${usd.format(homeWarranty)}, Closing/recording fees: ${usd.format(closingFees)}`,
-      `Seller concessions: ${usd.format(sellerConcessions)}`,
-      `Estimated net proceeds: ${usd.format(netProceeds)}`,
+      `HOA fee: ${usd.format(num(hoaFee))}, Home warranty: ${usd.format(num(homeWarranty))}, Closing/recording fees: ${usd.format(num(closingFees))}`,
+      `Seller concessions: ${usd.format(num(sellerConcessions))}`,
+      `${isShort ? 'Estimated cash needed to close' : 'Estimated net proceeds'}: ${resultValue}`,
     ].join('\n');
     try {
       const res = await fetch('https://api.web3forms.com/submit', {
@@ -151,11 +158,9 @@ export default function SellerNetProceeds({ lang, copy }) {
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
             <input
-              type="number"
-              min="0"
-              step="1000"
+              inputMode="decimal"
               value={salePrice}
-              onChange={(e) => setSalePrice(Math.max(Number(e.target.value) || 0, 0))}
+              onChange={(e) => setSalePrice(e.target.value.replace(/[^0-9.]/g, ''))}
               className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
             />
           </div>
@@ -166,11 +171,9 @@ export default function SellerNetProceeds({ lang, copy }) {
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
             <input
-              type="number"
-              min="0"
-              step="1000"
+              inputMode="decimal"
               value={loanPayoff}
-              onChange={(e) => setLoanPayoff(Math.max(Number(e.target.value) || 0, 0))}
+              onChange={(e) => setLoanPayoff(e.target.value.replace(/[^0-9.]/g, ''))}
               className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
             />
           </div>
@@ -180,11 +183,9 @@ export default function SellerNetProceeds({ lang, copy }) {
           <span>{L.commission}</span>
           <div className="relative max-w-[10rem]">
             <input
-              type="number"
-              min="0"
-              step="0.1"
+              inputMode="decimal"
               value={commissionPercent}
-              onChange={(e) => setCommissionPercent(Math.max(Number(e.target.value) || 0, 0))}
+              onChange={(e) => setCommissionPercent(e.target.value.replace(/[^0-9.]/g, ''))}
               className="w-full rounded-sm border border-black/20 bg-white py-2 pl-3 pr-7"
             />
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink/50">%</span>
@@ -221,7 +222,7 @@ export default function SellerNetProceeds({ lang, copy }) {
             <span>{L.titleInsurance}</span>
             <span className="font-medium text-ink">{buyerPaysTitle ? usd.format(0) : usd.format(titlePremium)}</span>
           </div>
-          <span className="text-xs text-ink/50">{copy.titleNote.replace('{price}', usd.format(salePrice))}</span>
+          <span className="text-xs text-ink/50">{copy.titleNote.replace('{price}', usd.format(num(salePrice)))}</span>
           <label className="mt-1 flex items-center gap-2 text-xs text-ink/70">
             <input
               type="checkbox"
@@ -249,11 +250,10 @@ export default function SellerNetProceeds({ lang, copy }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
-                    value={Math.round(annualTax)}
+                    inputMode="decimal"
+                    value={annualTax}
                     onChange={(e) => {
-                      setAnnualTax(Math.max(Number(e.target.value) || 0, 0));
+                      setAnnualTax(e.target.value.replace(/[^0-9.]/g, ''));
                       setTaxTouched(true);
                     }}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
@@ -269,10 +269,9 @@ export default function SellerNetProceeds({ lang, copy }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={hoaFee}
-                    onChange={(e) => setHoaFee(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setHoaFee(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -283,10 +282,9 @@ export default function SellerNetProceeds({ lang, copy }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={homeWarranty}
-                    onChange={(e) => setHomeWarranty(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setHomeWarranty(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -298,10 +296,9 @@ export default function SellerNetProceeds({ lang, copy }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={closingFees}
-                    onChange={(e) => setClosingFees(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setClosingFees(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -313,10 +310,9 @@ export default function SellerNetProceeds({ lang, copy }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={sellerConcessions}
-                    onChange={(e) => setSellerConcessions(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setSellerConcessions(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -330,25 +326,26 @@ export default function SellerNetProceeds({ lang, copy }) {
       {/* Results */}
       <div className="lg:sticky lg:top-24">
         <div className="rounded-sm border border-ink/10 bg-cream p-6 shadow-sm md:p-8">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{R.title}</p>
-          <p className="mt-3 font-display text-4xl md:text-5xl">{usd.format(Math.max(netProceeds, 0))}</p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{resultLabel}</p>
+          <p className="mt-3 font-display text-4xl md:text-5xl">{resultValue}</p>
+          {isShort && <p className="mt-2 text-sm text-red-700">{copy.costsExceedNote}</p>}
 
           <div className="mt-6 divide-y divide-ink/10 text-sm">
-            <Row label={R.salePrice} value={usd.format(salePrice)} />
-            {loanPayoff > 0 && <Row label={`– ${R.loanPayoff}`} value={usd.format(loanPayoff)} />}
+            <Row label={R.salePrice} value={usd.format(num(salePrice))} />
+            {num(loanPayoff) > 0 && <Row label={`– ${R.loanPayoff}`} value={usd.format(num(loanPayoff))} />}
             {commissionCost > 0 && <Row label={`– ${R.commission}`} value={usd.format(commissionCost)} />}
             {titleCost > 0 && <Row label={`– ${R.titleInsurance}`} value={usd.format(titleCost)} />}
             {taxCredit > 0 && <Row label={`– ${R.taxCredit}`} value={usd.format(taxCredit)} />}
-            {hoaFee > 0 && <Row label={`– ${R.hoaFee}`} value={usd.format(hoaFee)} />}
-            {homeWarranty > 0 && <Row label={`– ${R.homeWarranty}`} value={usd.format(homeWarranty)} />}
-            {closingFees > 0 && <Row label={`– ${R.closingFees}`} value={usd.format(closingFees)} />}
-            {sellerConcessions > 0 && <Row label={`– ${R.sellerConcessions}`} value={usd.format(sellerConcessions)} />}
+            {num(hoaFee) > 0 && <Row label={`– ${R.hoaFee}`} value={usd.format(num(hoaFee))} />}
+            {num(homeWarranty) > 0 && <Row label={`– ${R.homeWarranty}`} value={usd.format(num(homeWarranty))} />}
+            {num(closingFees) > 0 && <Row label={`– ${R.closingFees}`} value={usd.format(num(closingFees))} />}
+            {num(sellerConcessions) > 0 && <Row label={`– ${R.sellerConcessions}`} value={usd.format(num(sellerConcessions))} />}
           </div>
 
           <div className="mt-6 border-t border-ink/10 pt-4 text-sm">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-ink">{R.net}</span>
-              <span className="font-display text-xl text-petrol">{usd.format(Math.max(netProceeds, 0))}</span>
+              <span className="font-medium text-ink">{resultLabel}</span>
+              <span className="font-display text-xl text-petrol">{resultValue}</span>
             </div>
           </div>
 

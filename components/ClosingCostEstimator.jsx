@@ -47,6 +47,10 @@ function round1(n) {
   return Math.round(n * 10) / 10;
 }
 
+function num(v) {
+  return parseFloat(v) || 0;
+}
+
 function defaultClosingDate() {
   const d = new Date();
   d.setDate(d.getDate() + 45);
@@ -72,25 +76,27 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
   const L = copy.labels;
   const R = copy.results;
 
-  const [salePrice, setSalePrice] = useState(300000);
+  const [salePrice, setSalePrice] = useState('300000');
   const [downPercent, setDownPercent] = useState(20);
+  const [downStr, setDownStr] = useState('20');
   const [downMode, setDownMode] = useState('percent');
-  const [rate, setRate] = useState(rates.rate30);
+  const [rate, setRate] = useState(String(rates.rate30));
   const [rateTouched, setRateTouched] = useState(false);
   const [city, setCity] = useState('mcallen');
   const [closingDate, setClosingDate] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const [originationPercent, setOriginationPercent] = useState(1);
-  const [appraisalFee, setAppraisalFee] = useState(550);
-  const [lenderFees, setLenderFees] = useState(600);
-  const [recordingFees, setRecordingFees] = useState(75);
-  const [homeInsurance, setHomeInsurance] = useState(DEFAULT_ANNUAL_INSURANCE);
-  const [escrowMonths, setEscrowMonths] = useState(3);
-  const [annualTax, setAnnualTax] = useState(() => Math.round(300000 * taxRateFor('mcallen')));
+  const [originationPercent, setOriginationPercent] = useState('1');
+  const [appraisalFee, setAppraisalFee] = useState('550');
+  const [lenderFees, setLenderFees] = useState('600');
+  const [recordingFees, setRecordingFees] = useState('75');
+  const [homeInsurance, setHomeInsurance] = useState(String(DEFAULT_ANNUAL_INSURANCE));
+  const [escrowMonths, setEscrowMonths] = useState('3');
+  const [annualTax, setAnnualTax] = useState(() => String(Math.round(300000 * taxRateFor('mcallen'))));
   const [taxTouched, setTaxTouched] = useState(false);
-  const [hoaFee, setHoaFee] = useState(0);
-  const [surveyFee, setSurveyFee] = useState(0);
+  const [hoaFee, setHoaFee] = useState('0');
+  const [surveyFee, setSurveyFee] = useState('0');
+  const [concessions, setConcessions] = useState('0');
   const [buyerPaysOwnerPolicy, setBuyerPaysOwnerPolicy] = useState(false);
 
   useEffect(() => {
@@ -99,27 +105,31 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
   }, []);
 
   useEffect(() => {
-    if (!taxTouched) setAnnualTax(Math.round(salePrice * taxRateFor(city)));
+    if (!taxTouched) setAnnualTax(String(Math.round(num(salePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [salePrice, city]);
 
-  const downDollar = useMemo(() => Math.round((salePrice * downPercent) / 100), [salePrice, downPercent]);
-  const loanAmount = Math.max(salePrice - downDollar, 0);
+  const downDollar = useMemo(() => Math.round((num(salePrice) * downPercent) / 100), [salePrice, downPercent]);
+  const loanAmount = Math.max(num(salePrice) - downDollar, 0);
   const cityName = city === 'other' ? L.otherCity : cities[city]?.[lang]?.name ?? city;
 
-  const originationCost = Math.round((loanAmount * originationPercent) / 100);
+  const originationCost = Math.round((loanAmount * num(originationPercent)) / 100);
   const interestCost = useMemo(
-    () => prepaidInterest(loanAmount, rate, closingDate),
+    () => prepaidInterest(loanAmount, num(rate), closingDate),
     [loanAmount, rate, closingDate]
   );
-  const escrowReserve = Math.round(((annualTax + homeInsurance) / 12) * escrowMonths);
-  const ownerPolicyPremium = useMemo(() => ownerTitlePremium(salePrice), [salePrice]);
+  const escrowReserve = Math.round(((num(annualTax) + num(homeInsurance)) / 12) * num(escrowMonths));
+  const ownerPolicyPremium = useMemo(() => ownerTitlePremium(num(salePrice)), [salePrice]);
 
   const closingCostsSubtotal =
-    originationCost + appraisalFee + lenderFees + SIMULTANEOUS_LOAN_POLICY_RATE + recordingFees +
-    homeInsurance + interestCost + escrowReserve + hoaFee + surveyFee +
+    originationCost + num(appraisalFee) + num(lenderFees) + SIMULTANEOUS_LOAN_POLICY_RATE + num(recordingFees) +
+    num(homeInsurance) + interestCost + escrowReserve + num(hoaFee) + num(surveyFee) +
     (buyerPaysOwnerPolicy ? ownerPolicyPremium : 0);
-  const totalCashToClose = downDollar + closingCostsSubtotal;
+  const netClosingCosts = closingCostsSubtotal - num(concessions);
+  const isCredit = netClosingCosts < 0;
+  const closingCostsLabel = isCredit ? R.creditBack : R.closingCostsSubtotal;
+  const closingCostsValue = usd.format(Math.abs(netClosingCosts));
+  const totalCashToClose = downDollar + netClosingCosts;
 
   const rateNoteText = rates.live && !rateTouched ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
   const taxNoteText = !taxTouched ? copy.taxNote.replace('{city}', cityName) : null;
@@ -135,17 +145,18 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
     setLeadFailed(false);
     const data = new FormData(e.target);
     const message = [
-      `Purchase price: ${usd.format(salePrice)}`,
+      `Purchase price: ${usd.format(num(salePrice))}`,
       `Down payment: ${usd.format(downDollar)} (${round1(downPercent)}%)`,
-      `Loan amount: ${usd.format(loanAmount)} at ${rate}%`,
+      `Loan amount: ${usd.format(loanAmount)} at ${num(rate)}%`,
       `City: ${cityName}`,
       `Closing date: ${closingDate}`,
-      `Origination: ${usd.format(originationCost)}, Appraisal: ${usd.format(appraisalFee)}, Other lender fees: ${usd.format(lenderFees)}`,
-      `Loan title policy: ${usd.format(SIMULTANEOUS_LOAN_POLICY_RATE)}, Recording: ${usd.format(recordingFees)}`,
+      `Origination: ${usd.format(originationCost)}, Appraisal: ${usd.format(num(appraisalFee))}, Other lender fees: ${usd.format(num(lenderFees))}`,
+      `Loan title policy: ${usd.format(SIMULTANEOUS_LOAN_POLICY_RATE)}, Recording: ${usd.format(num(recordingFees))}`,
       ...(buyerPaysOwnerPolicy ? [`Owner's title policy (buyer-paid): ${usd.format(ownerPolicyPremium)}`] : []),
-      `Homeowners insurance: ${usd.format(homeInsurance)}, Prepaid interest: ${usd2.format(interestCost)}, Escrow reserve: ${usd.format(escrowReserve)}`,
-      `HOA fee: ${usd.format(hoaFee)}, Survey: ${usd.format(surveyFee)}`,
-      `Estimated closing costs subtotal: ${usd.format(closingCostsSubtotal)}`,
+      `Homeowners insurance: ${usd.format(num(homeInsurance))}, Prepaid interest: ${usd2.format(interestCost)}, Escrow reserve: ${usd.format(escrowReserve)}`,
+      `HOA fee: ${usd.format(num(hoaFee))}, Survey: ${usd.format(num(surveyFee))}`,
+      ...(num(concessions) > 0 ? [`Seller concessions: ${usd.format(num(concessions))}`] : []),
+      `${isCredit ? 'Seller credit exceeds closing costs' : 'Estimated closing costs subtotal'}: ${closingCostsValue}`,
       `Estimated total cash to close: ${usd.format(totalCashToClose)}`,
     ].join('\n');
     try {
@@ -182,11 +193,9 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
             <input
-              type="number"
-              min="0"
-              step="1000"
+              inputMode="decimal"
               value={salePrice}
-              onChange={(e) => setSalePrice(Math.max(Number(e.target.value) || 0, 0))}
+              onChange={(e) => setSalePrice(e.target.value.replace(/[^0-9.]/g, ''))}
               className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
             />
           </div>
@@ -200,14 +209,14 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
               )}
               <input
-                type="number"
-                min="0"
-                step={downMode === 'percent' ? '1' : '1000'}
-                value={downMode === 'percent' ? round1(downPercent) : downDollar}
+                inputMode="decimal"
+                value={downStr}
                 onChange={(e) => {
-                  const v = Math.max(Number(e.target.value) || 0, 0);
+                  const raw = e.target.value.replace(/[^0-9.]/g, '');
+                  setDownStr(raw);
+                  const v = num(raw);
                   if (downMode === 'percent') setDownPercent(v);
-                  else setDownPercent(salePrice > 0 ? (v / salePrice) * 100 : 0);
+                  else setDownPercent(num(salePrice) > 0 ? (v / num(salePrice)) * 100 : 0);
                 }}
                 className={`w-full rounded-sm border border-black/20 bg-white py-2 pr-3 ${downMode === 'dollar' ? 'pl-7' : 'pl-3'}`}
               />
@@ -218,14 +227,20 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
             <div className="flex overflow-hidden rounded-sm border border-black/20 text-xs font-medium">
               <button
                 type="button"
-                onClick={() => setDownMode('percent')}
+                onClick={() => {
+                  setDownMode('percent');
+                  setDownStr(String(round1(downPercent)));
+                }}
                 className={`px-3 ${downMode === 'percent' ? 'bg-petrol text-cream' : 'bg-white text-ink/60 hover:bg-black/5'}`}
               >
                 %
               </button>
               <button
                 type="button"
-                onClick={() => setDownMode('dollar')}
+                onClick={() => {
+                  setDownMode('dollar');
+                  setDownStr(String(downDollar));
+                }}
                 className={`px-3 ${downMode === 'dollar' ? 'bg-petrol text-cream' : 'bg-white text-ink/60 hover:bg-black/5'}`}
               >
                 $
@@ -239,12 +254,10 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
           <span>{L.interestRate}</span>
           <div className="relative max-w-[10rem]">
             <input
-              type="number"
-              min="0"
-              step="0.01"
+              inputMode="decimal"
               value={rate}
               onChange={(e) => {
-                setRate(Math.max(Number(e.target.value) || 0, 0));
+                setRate(e.target.value.replace(/[^0-9.]/g, ''));
                 setRateTouched(true);
               }}
               className="w-full rounded-sm border border-black/20 bg-white py-2 pl-3 pr-7"
@@ -293,11 +306,9 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 <span>{L.originationPercent}</span>
                 <div className="relative max-w-[10rem]">
                   <input
-                    type="number"
-                    min="0"
-                    step="0.1"
+                    inputMode="decimal"
                     value={originationPercent}
-                    onChange={(e) => setOriginationPercent(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setOriginationPercent(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-3 pr-7"
                   />
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink/50">%</span>
@@ -310,10 +321,9 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={appraisalFee}
-                    onChange={(e) => setAppraisalFee(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setAppraisalFee(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -324,10 +334,9 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={lenderFees}
-                    onChange={(e) => setLenderFees(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setLenderFees(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -338,10 +347,9 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={recordingFees}
-                    onChange={(e) => setRecordingFees(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setRecordingFees(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -352,10 +360,9 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={homeInsurance}
-                    onChange={(e) => setHomeInsurance(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setHomeInsurance(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -364,11 +371,9 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
               <label className="grid gap-1 text-sm">
                 <span>{L.escrowMonths}</span>
                 <input
-                  type="number"
-                  min="0"
-                  max="12"
+                  inputMode="decimal"
                   value={escrowMonths}
-                  onChange={(e) => setEscrowMonths(Math.max(Number(e.target.value) || 0, 0))}
+                  onChange={(e) => setEscrowMonths(e.target.value.replace(/[^0-9.]/g, ''))}
                   className="w-full max-w-[8rem] rounded-sm border border-black/20 bg-white py-2 px-3"
                 />
                 <span className="text-xs text-ink/50">{copy.escrowNote}</span>
@@ -401,10 +406,9 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={hoaFee}
-                    onChange={(e) => setHoaFee(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setHoaFee(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
@@ -415,14 +419,27 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
                   <input
-                    type="number"
-                    min="0"
+                    inputMode="decimal"
                     value={surveyFee}
-                    onChange={(e) => setSurveyFee(Math.max(Number(e.target.value) || 0, 0))}
+                    onChange={(e) => setSurveyFee(e.target.value.replace(/[^0-9.]/g, ''))}
                     className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
                   />
                 </div>
                 <span className="text-xs text-ink/50">{copy.surveyNote}</span>
+              </label>
+
+              <label className="grid gap-1 text-sm sm:col-span-2">
+                <span>{L.concessions}</span>
+                <div className="relative max-w-[14rem]">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
+                  <input
+                    inputMode="decimal"
+                    value={concessions}
+                    onChange={(e) => setConcessions(e.target.value.replace(/[^0-9.]/g, ''))}
+                    className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
+                  />
+                </div>
+                <span className="text-xs text-ink/50">{copy.concessionsNote}</span>
               </label>
 
               {taxNoteText && (
@@ -442,22 +459,23 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
           <div className="mt-6 divide-y divide-ink/10 text-sm">
             <Row label={R.downPayment} value={usd.format(downDollar)} />
             {originationCost > 0 && <Row label={R.origination} value={usd.format(originationCost)} />}
-            {appraisalFee > 0 && <Row label={R.appraisal} value={usd.format(appraisalFee)} />}
-            {lenderFees > 0 && <Row label={R.lenderFees} value={usd.format(lenderFees)} />}
+            {num(appraisalFee) > 0 && <Row label={R.appraisal} value={usd.format(num(appraisalFee))} />}
+            {num(lenderFees) > 0 && <Row label={R.lenderFees} value={usd.format(num(lenderFees))} />}
             <Row label={R.titlePolicy} value={usd.format(SIMULTANEOUS_LOAN_POLICY_RATE)} />
             {buyerPaysOwnerPolicy && <Row label={R.ownerPolicyPremium} value={usd.format(ownerPolicyPremium)} />}
-            {recordingFees > 0 && <Row label={R.recordingFees} value={usd.format(recordingFees)} />}
-            {homeInsurance > 0 && <Row label={R.homeInsurance} value={usd.format(homeInsurance)} />}
+            {num(recordingFees) > 0 && <Row label={R.recordingFees} value={usd.format(num(recordingFees))} />}
+            {num(homeInsurance) > 0 && <Row label={R.homeInsurance} value={usd.format(num(homeInsurance))} />}
             {interestCost > 0 && <Row label={R.prepaidInterest} value={usd2.format(interestCost)} />}
             {escrowReserve > 0 && <Row label={R.escrowReserve} value={usd.format(escrowReserve)} />}
-            {hoaFee > 0 && <Row label={R.hoaFee} value={usd.format(hoaFee)} />}
-            {surveyFee > 0 && <Row label={R.surveyFee} value={usd.format(surveyFee)} />}
+            {num(hoaFee) > 0 && <Row label={R.hoaFee} value={usd.format(num(hoaFee))} />}
+            {num(surveyFee) > 0 && <Row label={R.surveyFee} value={usd.format(num(surveyFee))} />}
+            {num(concessions) > 0 && <Row label={`– ${R.concessions}`} value={usd.format(num(concessions))} />}
           </div>
 
           <div className="mt-6 grid gap-2 border-t border-ink/10 pt-4 text-sm text-ink/70">
             <div className="flex items-center justify-between">
-              <span>{R.closingCostsSubtotal}</span>
-              <span className="font-medium text-ink">{usd.format(closingCostsSubtotal)}</span>
+              <span>{closingCostsLabel}</span>
+              <span className="font-medium text-ink">{closingCostsValue}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="font-medium text-ink">{R.total}</span>
