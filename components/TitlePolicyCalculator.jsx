@@ -72,6 +72,19 @@ function loanPolicyPremium(loanAmount, ownerAmount) {
   return basicPremium(loanAmount) - basicPremium(ownerAmount) + 100;
 }
 
+// Rate Rule R-16 (amendment of the area & boundary / survey exception):
+// always $0 on a Loan Policy, but 5% of the Owner's Policy basic premium
+// (minimum $20) for residential property to add the same protection there —
+// assuming a satisfactory survey. Non-residential land rates at 15% instead.
+// tdi.texas.gov/title/titlem3b.html#r16
+const AREA_AMENDMENT_RATE_RESIDENTIAL = 0.05;
+const AREA_AMENDMENT_MIN = 20;
+
+function areaAmendmentPremium(ownerPremium) {
+  if (ownerPremium <= 0) return 0;
+  return Math.max(Math.round(ownerPremium * AREA_AMENDMENT_RATE_RESIDENTIAL), AREA_AMENDMENT_MIN);
+}
+
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 function num(v) {
@@ -85,12 +98,12 @@ function round1(n) {
 export default function TitlePolicyCalculator({ copy }) {
   const L = copy.labels;
   const R = copy.results;
-  const W = copy.whoPays;
 
   const [salePrice, setSalePrice] = useState('300000');
   const [downPercent, setDownPercent] = useState(20);
   const [downStr, setDownStr] = useState('20');
   const [downMode, setDownMode] = useState('percent');
+  const [amendArea, setAmendArea] = useState(false);
 
   const downDollar = useMemo(() => Math.round((num(salePrice) * downPercent) / 100), [salePrice, downPercent]);
   const loanAmount = Math.max(num(salePrice) - downDollar, 0);
@@ -98,7 +111,8 @@ export default function TitlePolicyCalculator({ copy }) {
   const ownerPremium = useMemo(() => basicPremium(num(salePrice)), [salePrice]);
   const loanPremium = useMemo(() => loanPolicyPremium(loanAmount, num(salePrice)), [loanAmount, salePrice]);
   const standaloneLoanPremium = useMemo(() => basicPremium(loanAmount), [loanAmount]);
-  const totalPremiums = ownerPremium + loanPremium;
+  const areaAmendment = useMemo(() => (amendArea ? areaAmendmentPremium(ownerPremium) : 0), [amendArea, ownerPremium]);
+  const totalPremiums = ownerPremium + loanPremium + areaAmendment;
 
   const savingsNote = loanAmount > 0 && standaloneLoanPremium > loanPremium
     ? R.loanPolicySavingsNote.replace('{actual}', usd.format(loanPremium)).replace('{standalone}', usd.format(standaloneLoanPremium))
@@ -120,6 +134,7 @@ export default function TitlePolicyCalculator({ copy }) {
       `Loan amount: ${usd.format(loanAmount)}`,
       `Owner's Policy premium: ${usd.format(ownerPremium)}`,
       loanAmount > 0 ? `Loan Policy premium: ${usd.format(loanPremium)}` : `Loan Policy: none (cash purchase)`,
+      ...(amendArea ? [`Area & boundary amendment: ${usd.format(areaAmendment)}`] : []),
       `Total title insurance premiums: ${usd.format(totalPremiums)}`,
     ].join('\n');
     try {
@@ -213,6 +228,20 @@ export default function TitlePolicyCalculator({ copy }) {
           </div>
           <span className="text-xs text-ink/50">{usd.format(downDollar)} · {round1(downPercent)}%</span>
         </div>
+
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={amendArea}
+            onChange={(e) => setAmendArea(e.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            <span className="block">{L.amendArea}</span>
+            {amendArea && <span className="mt-1 block text-sm font-medium text-ink">{usd.format(areaAmendment)}</span>}
+            <span className="mt-1 block text-xs text-ink/50">{copy.amendAreaNote}</span>
+          </span>
+        </label>
       </div>
 
       {/* Results */}
@@ -238,6 +267,7 @@ export default function TitlePolicyCalculator({ copy }) {
             ) : (
               <p className="py-2.5 text-xs text-ink/50">{R.cashNote}</p>
             )}
+            {amendArea && <Row label={R.areaAmendment} value={usd.format(areaAmendment)} />}
           </div>
 
           <div className="mt-6 grid gap-2 border-t border-ink/10 pt-4 text-sm text-ink/70">
@@ -245,21 +275,6 @@ export default function TitlePolicyCalculator({ copy }) {
               <span className="font-medium text-ink">{R.total}</span>
               <span className="font-display text-xl text-petrol">{usd.format(totalPremiums)}</span>
             </div>
-          </div>
-
-          <div className="mt-6 grid gap-2 border-t border-ink/10 pt-4 text-sm">
-            <p className="font-medium text-ink">{W.title}</p>
-            <div className="flex items-center justify-between text-ink/70">
-              <span>{W.sellerCost}</span>
-              <span className="font-medium text-ink">{usd.format(ownerPremium)}</span>
-            </div>
-            <div className="flex items-center justify-between text-ink/70">
-              <span>{W.buyerCost}</span>
-              <span className="font-medium text-ink">{usd.format(loanAmount > 0 ? loanPremium : 0)}</span>
-            </div>
-            <p className="text-ink/70">{W.ownerPolicy}</p>
-            <p className="text-ink/70">{W.loanPolicy}</p>
-            <p className="text-xs text-ink/50">{W.disclaimer}</p>
           </div>
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
