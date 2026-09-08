@@ -41,9 +41,31 @@ function insuranceNoteFor(city, copy, cityName) {
 }
 
 const CLOSING_COST_ESTIMATE_RATE = 0.03;
-const DEFAULT_VACANCY = 10.6;
+
+// Long-term-rental vacancy default: McAllen HMA overall rental vacancy,
+// mid-2025 (HUD PD&R). South Padre Island is overwhelmingly short-term/
+// vacation rentals, where occupancy trackers cluster around 47%-53% for
+// 2025-2026 — a fundamentally different rental model, so it gets its own
+// much higher "vacancy" default (treating monthly rent as the fully-booked
+// nightly-rate equivalent).
+const LTR_VACANCY_DEFAULT = 10.6;
+const STR_VACANCY_DEFAULT = 50;
+
 const DEFAULT_MANAGEMENT = 8.5;
 const DEFAULT_MAINTENANCE = 5;
+
+// DSCR/investor loans typically price 0.5-1.5 points above the conventional
+// owner-occupied average (Freddie Mac PMMS) this site's rate feed reports —
+// this seeds a mid-range spread on top of that average, not a quote.
+const INVESTOR_RATE_SPREAD = 0.75;
+
+// Multi-year outlook defaults — all editable planning assumptions, not
+// forecasts. Rent growth is deliberately conservative given recent flat/soft
+// RGV rent data (HUD); appreciation sits at the low end of the long-term
+// 3%-5%/yr national historical range.
+const DEFAULT_RENT_GROWTH = 2;
+const DEFAULT_APPRECIATION = 3;
+const DEFAULT_EXPENSE_INFLATION = 3;
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
@@ -55,6 +77,10 @@ function num(v) {
 
 function round1(n) {
   return Math.round(n * 10) / 10;
+}
+
+function round2(n) {
+  return Math.round(n * 100) / 100;
 }
 
 // Standard fixed-rate amortization — same formula as MortgageCalculator.jsx,
@@ -77,7 +103,7 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
   const [downPercent, setDownPercent] = useState(25);
   const [downStr, setDownStr] = useState('25');
   const [downMode, setDownMode] = useState('percent');
-  const [rate, setRate] = useState(String(rates.rate30));
+  const [rate, setRate] = useState(() => String(round2(rates.rate30 + INVESTOR_RATE_SPREAD)));
   const [rateTouched, setRateTouched] = useState(false);
   const [term, setTerm] = useState(30);
   const [city, setCity] = useState('mcallen');
@@ -93,12 +119,18 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
   const [insuranceTouched, setInsuranceTouched] = useState(false);
 
   const [monthlyRent, setMonthlyRent] = useState('2000');
-  const [vacancyPercent, setVacancyPercent] = useState(String(DEFAULT_VACANCY));
+  const [vacancyPercent, setVacancyPercent] = useState(String(LTR_VACANCY_DEFAULT));
+  const [vacancyTouched, setVacancyTouched] = useState(false);
   const [managementPercent, setManagementPercent] = useState(String(DEFAULT_MANAGEMENT));
+
+  const [rentGrowthPercent, setRentGrowthPercent] = useState(String(DEFAULT_RENT_GROWTH));
+  const [appreciationPercent, setAppreciationPercent] = useState(String(DEFAULT_APPRECIATION));
+  const [expenseInflationPercent, setExpenseInflationPercent] = useState(String(DEFAULT_EXPENSE_INFLATION));
 
   useEffect(() => {
     if (!taxTouched) setTax(String(Math.round(num(price) * taxRateFor(city))));
     if (!insuranceTouched) setInsurance(String(insuranceDefaultFor(city)));
+    if (!vacancyTouched) setVacancyPercent(String(city === 'south-padre-island' ? STR_VACANCY_DEFAULT : LTR_VACANCY_DEFAULT));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city]);
 
@@ -135,9 +167,85 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
   const dscr = annualDebtService > 0 ? noi / annualDebtService : null;
   const grm = gsi > 0 ? num(price) / gsi : 0;
 
-  const rateNoteText = rates.live && !rateTouched ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
+  const rateNoteText = rates.live && !rateTouched
+    ? copy.rateNote
+        .replace('{base}', String(rates.rate30))
+        .replace('{spread}', String(INVESTOR_RATE_SPREAD))
+        .replace('{date}', formatDate(rates.asOfDate, lang))
+    : null;
   const taxNoteText = !taxTouched ? copy.taxNote.replace('{city}', cityName) : null;
   const insuranceNoteText = !insuranceTouched ? insuranceNoteFor(city, copy, cityName) : null;
+  const vacancyNoteText = !vacancyTouched ? (city === 'south-padre-island' ? copy.vacancyNoteSpi : copy.vacancyNote) : null;
+
+  // Multi-year outlook: projects rent (compounding at rentGrowthPercent),
+  // fixed-dollar expenses (compounding at expenseInflationPercent — the
+  // %-of-rent expenses already scale automatically with rent), the fixed-rate
+  // loan's amortizing balance, and property value (compounding at
+  // appreciationPercent) out to a handful of milestone years, ending at the
+  // loan's payoff year.
+  const proformaRows = useMemo(() => {
+    const rentGrowth = num(rentGrowthPercent) / 100;
+    const appreciation = num(appreciationPercent) / 100;
+    const expenseInflation = num(expenseInflationPercent) / 100;
+    const monthlyRate = num(rate) / 100 / 12;
+    const totalPayments = term * 12;
+    const fixedExpensesYear1 = num(tax) + num(insurance) + hoaAnnual;
+
+    const milestoneYears = [...new Set([1, 3, 5, 10, term])].filter((y) => y > 0).sort((a, b) => a - b);
+    const maxYear = milestoneYears[milestoneYears.length - 1];
+
+    let cumulativeCashFlow = 0;
+    const rows = [];
+    for (let year = 1; year <= maxYear; year++) {
+      const growthFactor = (1 + rentGrowth) ** (year - 1);
+      const inflationFactor = (1 + expenseInflation) ** (year - 1);
+      const yearGsi = gsi * growthFactor;
+      const yearEgi = yearGsi - yearGsi * (num(vacancyPercent) / 100);
+      const yearManagement = yearEgi * (num(managementPercent) / 100);
+      const yearMaintenance = yearGsi * (num(maintenancePercent) / 100);
+      const yearOpEx = yearManagement + yearMaintenance + fixedExpensesYear1 * inflationFactor;
+      const yearNoi = yearEgi - yearOpEx;
+      const yearCashFlow = yearNoi - annualDebtService;
+      cumulativeCashFlow += yearCashFlow;
+
+      if (milestoneYears.includes(year)) {
+        const paymentsMade = year * 12;
+        let remainingBalance;
+        if (loanAmount <= 0) {
+          remainingBalance = 0;
+        } else if (paymentsMade >= totalPayments) {
+          remainingBalance = 0;
+        } else if (monthlyRate === 0) {
+          remainingBalance = Math.max(loanAmount - monthlyDebtService * paymentsMade, 0);
+        } else {
+          const factorN = (1 + monthlyRate) ** totalPayments;
+          const factorPaid = (1 + monthlyRate) ** paymentsMade;
+          remainingBalance = (loanAmount * (factorN - factorPaid)) / (factorN - 1);
+        }
+        const propertyValue = num(price) * (1 + appreciation) ** year;
+        const equity = propertyValue - remainingBalance;
+        const totalReturn = cumulativeCashFlow + (equity - downDollar);
+        const totalRoi = totalCashInvested > 0 ? totalReturn / totalCashInvested : 0;
+        rows.push({
+          year,
+          paidOff: paymentsMade >= totalPayments,
+          cumulativeCashFlow,
+          propertyValue,
+          remainingBalance,
+          equity,
+          totalReturn,
+          totalRoi,
+        });
+      }
+    }
+    return rows;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    gsi, vacancyPercent, managementPercent, maintenancePercent, tax, insurance, hoaAnnual,
+    rentGrowthPercent, appreciationPercent, expenseInflationPercent,
+    rate, term, loanAmount, price, downDollar, totalCashInvested, annualDebtService, monthlyDebtService,
+  ]);
+  const finalProformaRow = proformaRows[proformaRows.length - 1];
 
   const [showLead, setShowLead] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
@@ -161,6 +269,7 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
       `Cash flow: ${usd.format(cashFlowAnnual)}/yr (${usd2.format(cashFlowMonthly)}/mo)`,
       `Total cash invested: ${usd.format(totalCashInvested)}, Cash-on-cash: ${pct1.format(cashOnCash)}`,
       `DSCR: ${dscr === null ? 'n/a (cash purchase)' : dscr.toFixed(2)}`,
+      ...(finalProformaRow ? [`Year ${finalProformaRow.year} projected total return: ${usd.format(finalProformaRow.totalReturn)} (${pct1.format(finalProformaRow.totalRoi)} ROI), assuming ${round1(num(rentGrowthPercent))}% rent growth / ${round1(num(appreciationPercent))}% appreciation / ${round1(num(expenseInflationPercent))}% expense inflation`] : []),
     ].join('\n');
     try {
       const res = await fetch('https://api.web3forms.com/submit', {
@@ -188,6 +297,7 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
   }
 
   return (
+    <>
     <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:items-start">
       {/* Inputs */}
       <div className="grid gap-8">
@@ -310,12 +420,15 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
               <input
                 inputMode="decimal"
                 value={vacancyPercent}
-                onChange={(e) => setVacancyPercent(e.target.value.replace(/[^0-9.]/g, ''))}
+                onChange={(e) => {
+                  setVacancyPercent(e.target.value.replace(/[^0-9.]/g, ''));
+                  setVacancyTouched(true);
+                }}
                 className="w-full rounded-sm border border-black/20 bg-white py-2 pl-3 pr-7"
               />
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink/50">%</span>
             </div>
-            <span className="text-xs text-ink/50">{copy.vacancyNote}</span>
+            {vacancyNoteText && <span className="text-xs text-ink/50">{vacancyNoteText}</span>}
           </label>
 
           <label className="grid gap-1 text-sm">
@@ -541,6 +654,99 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
         </div>
       </div>
     </div>
+
+    <div className="mt-16 border-t border-ink/10 pt-10">
+      <h2 className="font-display text-2xl md:text-3xl">{copy.proforma.title}</h2>
+      <p className="mt-3 max-w-3xl text-sm text-ink/70">{copy.proforma.intro}</p>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        <label className="grid gap-1 text-sm">
+          <span>{L.rentGrowth}</span>
+          <div className="relative max-w-[10rem]">
+            <input
+              inputMode="decimal"
+              value={rentGrowthPercent}
+              onChange={(e) => setRentGrowthPercent(e.target.value.replace(/[^0-9.]/g, ''))}
+              className="w-full rounded-sm border border-black/20 bg-white py-2 pl-3 pr-7"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink/50">%</span>
+          </div>
+          <span className="text-xs text-ink/50">{copy.proforma.rentGrowthNote}</span>
+        </label>
+
+        <label className="grid gap-1 text-sm">
+          <span>{L.appreciation}</span>
+          <div className="relative max-w-[10rem]">
+            <input
+              inputMode="decimal"
+              value={appreciationPercent}
+              onChange={(e) => setAppreciationPercent(e.target.value.replace(/[^0-9.]/g, ''))}
+              className="w-full rounded-sm border border-black/20 bg-white py-2 pl-3 pr-7"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink/50">%</span>
+          </div>
+          <span className="text-xs text-ink/50">{copy.proforma.appreciationNote}</span>
+        </label>
+
+        <label className="grid gap-1 text-sm">
+          <span>{L.expenseInflation}</span>
+          <div className="relative max-w-[10rem]">
+            <input
+              inputMode="decimal"
+              value={expenseInflationPercent}
+              onChange={(e) => setExpenseInflationPercent(e.target.value.replace(/[^0-9.]/g, ''))}
+              className="w-full rounded-sm border border-black/20 bg-white py-2 pl-3 pr-7"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink/50">%</span>
+          </div>
+          <span className="text-xs text-ink/50">{copy.proforma.expenseInflationNote}</span>
+        </label>
+      </div>
+
+      <div className="mt-8 overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
+          <thead>
+            <tr className="border-b border-ink/15 text-left text-xs uppercase tracking-wide text-ink/45">
+              <th className="py-2 pr-4 font-medium">{copy.proforma.yearHeader}</th>
+              <th className="py-2 pr-4 font-medium">{copy.proforma.propertyValueHeader}</th>
+              <th className="py-2 pr-4 font-medium">{copy.proforma.loanBalanceHeader}</th>
+              <th className="py-2 pr-4 font-medium">{copy.proforma.equityHeader}</th>
+              <th className="py-2 pr-4 font-medium">{copy.proforma.cumulativeCashFlowHeader}</th>
+              <th className="py-2 pr-4 font-medium">{copy.proforma.totalReturnHeader}</th>
+              <th className="py-2 font-medium">{copy.proforma.totalRoiHeader}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink/10">
+            {proformaRows.map((row) => (
+              <tr key={row.year}>
+                <td className="py-2.5 pr-4 text-ink/70">
+                  {row.year}{row.paidOff && <span className="text-ink/45">{copy.proforma.paidOffSuffix}</span>}
+                </td>
+                <td className="py-2.5 pr-4 text-ink">{usd.format(row.propertyValue)}</td>
+                <td className="py-2.5 pr-4 text-ink">{usd.format(row.remainingBalance)}</td>
+                <td className="py-2.5 pr-4 font-medium text-ink">{usd.format(row.equity)}</td>
+                <td className="py-2.5 pr-4 text-ink">{usd.format(row.cumulativeCashFlow)}</td>
+                <td className="py-2.5 pr-4 font-medium text-ink">{usd.format(row.totalReturn)}</td>
+                <td className="py-2.5 font-medium text-petrol">{pct1.format(row.totalRoi)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {finalProformaRow && (
+        <p className="mt-6 max-w-3xl text-sm text-ink/80">
+          {copy.proforma.summary
+            .replace('{year}', String(finalProformaRow.year))
+            .replace('{amount}', usd.format(finalProformaRow.totalReturn))
+            .replace('{roi}', pct1.format(finalProformaRow.totalRoi))
+            .replace('{invested}', usd.format(totalCashInvested))}
+        </p>
+      )}
+
+      <p className="mt-4 max-w-3xl text-xs text-ink/50">{copy.proforma.disclaimer}</p>
+    </div>
+    </>
   );
 }
 
