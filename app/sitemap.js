@@ -10,6 +10,7 @@ const STATIC_PATHS = [
   { path: 'resources/seller-net-proceeds', changeFrequency: 'daily', priority: 0.9 },
   { path: 'resources/closing-cost-estimator', changeFrequency: 'daily', priority: 0.9 },
   { path: 'resources/title-policy-calculator', changeFrequency: 'daily', priority: 0.9 },
+  { path: 'resources/investment-property-calculator', changeFrequency: 'daily', priority: 0.9 },
   { path: 'home-valuation', changeFrequency: 'monthly', priority: 0.8 },
   { path: 'rgv', changeFrequency: 'weekly', priority: 0.8 },
   { path: 'resources', changeFrequency: 'weekly', priority: 0.7 },
