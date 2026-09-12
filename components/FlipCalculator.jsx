@@ -208,6 +208,19 @@ export default function FlipCalculator({ lang, copy }) {
       `${isLoss ? 'Estimated loss' : 'Estimated profit'}: ${usd.format(Math.abs(profit))}, ROI: ${pct1.format(roi)}, Margin: ${pct1.format(profitMargin)}`,
       `Suggested max offer (${num(maoPercent)}% rule): ${usd.format(maoAmount)}`,
     ].join('\n');
+    if (!data.get('botcheck')) {
+      fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formType: 'flip_calculator',
+          lang,
+          name: data.get('name'),
+          phone: data.get('phone'),
+          detail: message,
+        }),
+      }).catch(() => {});
+    }
     try {
       const res = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',

@@ -159,6 +159,19 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
       `${isCredit ? 'Seller credit exceeds closing costs' : 'Estimated closing costs subtotal'}: ${closingCostsValue}`,
       `Estimated total cash to close: ${usd.format(totalCashToClose)}`,
     ].join('\n');
+    if (!data.get('botcheck')) {
+      fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formType: 'closing_cost_estimator',
+          lang,
+          name: data.get('name'),
+          phone: data.get('phone'),
+          detail: message,
+        }),
+      }).catch(() => {});
+    }
     try {
       const res = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',

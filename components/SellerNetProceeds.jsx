@@ -124,6 +124,19 @@ export default function SellerNetProceeds({ lang, copy }) {
       `Seller concessions: ${usd.format(num(sellerConcessions))}`,
       `${isShort ? 'Estimated cash needed to close' : 'Estimated net proceeds'}: ${resultValue}`,
     ].join('\n');
+    if (!data.get('botcheck')) {
+      fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formType: 'seller_net_proceeds_calculator',
+          lang,
+          name: data.get('name'),
+          phone: data.get('phone'),
+          detail: message,
+        }),
+      }).catch(() => {});
+    }
     try {
       const res = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',

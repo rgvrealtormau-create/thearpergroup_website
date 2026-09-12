@@ -122,6 +122,19 @@ export default function MortgageCalculator({ lang, copy, rates }) {
       `Taxes: ${usd2.format(monthlyTax)}/mo, Insurance: ${usd2.format(monthlyInsurance)}/mo, PMI: ${usd2.format(monthlyPmi)}/mo, HOA: ${usd2.format(monthlyHoa)}/mo`,
       `Estimated total monthly payment: ${usd2.format(totalMonthly)}`,
     ].join('\n');
+    if (!data.get('botcheck')) {
+      fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formType: 'mortgage_calculator',
+          lang,
+          name: data.get('name'),
+          phone: data.get('phone'),
+          detail: message,
+        }),
+      }).catch(() => {});
+    }
     try {
       const res = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',

@@ -271,6 +271,19 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
       `DSCR: ${dscr === null ? 'n/a (cash purchase)' : dscr.toFixed(2)}`,
       ...(finalProformaRow ? [`Year ${finalProformaRow.year} projected total return: ${usd.format(finalProformaRow.totalReturn)} (${pct1.format(finalProformaRow.totalRoi)} ROI), assuming ${round1(num(rentGrowthPercent))}% rent growth / ${round1(num(appreciationPercent))}% appreciation / ${round1(num(expenseInflationPercent))}% expense inflation`] : []),
     ].join('\n');
+    if (!data.get('botcheck')) {
+      fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formType: 'investment_property_calculator',
+          lang,
+          name: data.get('name'),
+          phone: data.get('phone'),
+          detail: message,
+        }),
+      }).catch(() => {});
+    }
     try {
       const res = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',

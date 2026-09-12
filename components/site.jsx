@@ -132,6 +132,20 @@ export function ValuationForm({ lang, copy }) {
     setBusy(true);
     setFailed(false);
     const data = new FormData(e.target);
+    if (!data.get('botcheck')) {
+      fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formType: 'home_valuation',
+          lang,
+          name: data.get('name'),
+          email: data.get('email'),
+          phone: data.get('phone'),
+          address: data.get('address'),
+        }),
+      }).catch(() => {});
+    }
     try {
       const res = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',

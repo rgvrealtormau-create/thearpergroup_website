@@ -95,7 +95,7 @@ function round1(n) {
   return Math.round(n * 10) / 10;
 }
 
-export default function TitlePolicyCalculator({ copy }) {
+export default function TitlePolicyCalculator({ lang, copy }) {
   const L = copy.labels;
   const R = copy.results;
 
@@ -137,6 +137,19 @@ export default function TitlePolicyCalculator({ copy }) {
       ...(amendArea ? [`Area & boundary amendment: ${usd.format(areaAmendment)}`] : []),
       `Total title insurance premiums: ${usd.format(totalPremiums)}`,
     ].join('\n');
+    if (!data.get('botcheck')) {
+      fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formType: 'title_policy_calculator',
+          lang,
+          name: data.get('name'),
+          phone: data.get('phone'),
+          detail: message,
+        }),
+      }).catch(() => {});
+    }
     try {
       const res = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',
