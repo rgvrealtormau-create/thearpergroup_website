@@ -1,7 +1,7 @@
 import { cedarRidge } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
-import { CedarRidgeLogo, CedarRidgeWatermark } from '../../../../components/CedarRidgeLogo';
+import { CedarRidgeLogo } from '../../../../components/CedarRidgeLogo';
 import CedarRidgeForm from '../../../../components/CedarRidgeForm';
 
 // Buildhere lot-availability board. The Cedar_Ridge_Lot_Master Drive sheet
@@ -20,20 +20,6 @@ export async function generateMetadata({ params }) {
 
 function Diamond() {
   return <span aria-hidden="true" className="h-1.5 w-1.5 rotate-45 bg-crbrass" />;
-}
-
-function GalleryTile({ label, comingSoon }) {
-  return (
-    <div className="group relative aspect-[4/3] overflow-hidden rounded-sm border border-crnavy/10 bg-crnavy/5">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-crserif text-5xl text-crnavy/10" style={{ fontStyle: 'italic' }}>CR</span>
-      </div>
-      <div className="absolute inset-x-0 bottom-0 bg-crivory/90 px-3 py-2">
-        <p className="font-crsans text-xs font-medium text-crnavy">{label}</p>
-        <p className="font-crsans text-[0.65rem] uppercase tracking-wide text-crslate">{comingSoon}</p>
-      </div>
-    </div>
-  );
 }
 
 export default function CedarRidgeReserve({ params }) {
@@ -59,11 +45,10 @@ export default function CedarRidgeReserve({ params }) {
       <JsonLd data={breadcrumb} />
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-crnavy text-crivory">
-        <CedarRidgeWatermark className="pointer-events-none absolute -right-10 -top-16 text-[16rem] leading-none md:text-[24rem]" />
-        <div className="wrap relative py-20 md:py-28">
+      <section className="bg-crnavy text-crivory">
+        <div className="wrap py-12 md:py-16">
           <h1 className="sr-only">Cedar Ridge Reserve — {c.hero.placeLine}</h1>
-          <CedarRidgeLogo card className="mb-8" />
+          <CedarRidgeLogo card className="mb-6" />
           <p className="font-crsans text-sm uppercase tracking-[0.3em] text-crbrass">{c.hero.tagline}</p>
           <p className="mt-6 max-w-2xl text-lg text-crivory/85">{c.hero.lede}</p>
           <p className="mt-4 text-sm text-crivory/70">📍 {c.hero.placeLine}</p>
@@ -100,9 +85,6 @@ export default function CedarRidgeReserve({ params }) {
           <div>
             <p className="text-crnavy/80">{c.community.para1}</p>
             <p className="mt-4 text-crnavy/80">{c.community.para2}</p>
-            <a href="#gallery" className="mt-6 inline-block text-sm font-medium text-crnavy link-underline">
-              {c.community.cta} →
-            </a>
           </div>
         </div>
       </section>
@@ -119,20 +101,6 @@ export default function CedarRidgeReserve({ params }) {
               </div>
             ))}
           </dl>
-        </div>
-      </section>
-
-      {/* Gallery */}
-      <section id="gallery" className="bg-crivory">
-        <div className="wrap py-16 md:py-24">
-          <p className="text-sm uppercase tracking-[0.2em] text-crbrass">{c.gallery.eyebrow}</p>
-          <h2 className="mt-3 font-crserif text-3xl md:text-5xl">{c.gallery.title}</h2>
-          <p className="mt-4 max-w-2xl text-crnavy/70">{c.gallery.lede}</p>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {c.gallery.tiles.map((label) => (
-              <GalleryTile key={label} label={label} comingSoon={c.gallery.comingSoon} />
-            ))}
-          </div>
         </div>
       </section>
 

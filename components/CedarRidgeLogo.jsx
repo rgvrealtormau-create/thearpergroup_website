@@ -8,7 +8,7 @@ export function CedarRidgeLogo({ card = false, className = '' }) {
   const img = <Image src={logo} alt="Cedar Ridge Reserve" className="h-auto w-full" priority />;
   if (card) {
     return (
-      <span className={`inline-block max-w-[19rem] rounded-sm bg-crivory px-6 py-5 shadow-lg ${className}`}>
+      <span className={`inline-block max-w-[15rem] rounded-sm bg-crivory px-5 py-4 shadow-lg ${className}`}>
         {img}
       </span>
     );
@@ -16,19 +16,6 @@ export function CedarRidgeLogo({ card = false, className = '' }) {
   return (
     <span className={`inline-block max-w-[16rem] ${className}`}>
       {img}
-    </span>
-  );
-}
-
-// Large faint watermark used behind the navy hero.
-export function CedarRidgeWatermark({ className = '' }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`font-crserif select-none text-crivory/[0.06] ${className}`}
-      style={{ fontStyle: 'italic' }}
-    >
-      CR
     </span>
   );
 }

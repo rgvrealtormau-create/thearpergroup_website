@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BUSINESS, SOCIAL, searchUrl, otherLang, swapLangInPath, WEB3FORMS_ACCESS_KEY } from '../lib/site';
-import { nav, ui, footer as footerCopy } from '../lib/content';
+import { nav, ui, footer as footerCopy, communitiesHub } from '../lib/content';
 import { Logo, LogoLockup, AllianceLogo } from './Logo';
 
 export function SearchButton({ lang, campaign = 'nav', className = '', variant = 'gold' }) {
@@ -47,32 +47,123 @@ export function LangToggle({ lang, className = '' }) {
   );
 }
 
+function ChevronIcon({ open }) {
+  return (
+    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden="true" className={`transition-transform ${open ? 'rotate-180' : ''}`}>
+      <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Desktop: click-opened dropdown listing each community, so "Communities"
+// goes straight into a subdivision's page instead of a middle hub page
+// the visitor has to pick from.
+function CommunitiesDropdown({ lang, label }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    function onClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [open]);
+  const cards = communitiesHub[lang].cards;
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        className="flex items-center gap-1.5 whitespace-nowrap text-sm text-petrol hover:text-ink"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        {label}
+        <ChevronIcon open={open} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full w-56 pt-2">
+          <div className="overflow-hidden rounded-sm border border-black/10 bg-cream shadow-lg">
+            {cards.map((card) => (
+              <Link
+                key={card.href}
+                href={card.href}
+                onClick={() => setOpen(false)}
+                className="block px-4 py-3 text-sm text-petrol hover:bg-black/5 hover:text-ink"
+              >
+                <span className="block font-medium">{card.name}</span>
+                <span className="block text-xs text-ink/50">{card.location}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Mobile equivalent: an inline accordion instead of a hover panel.
+function CommunitiesAccordion({ lang, label, onNavigate }) {
+  const [open, setOpen] = useState(false);
+  const cards = communitiesHub[lang].cards;
+  return (
+    <div>
+      <button
+        type="button"
+        className="flex w-full items-center justify-between text-sm text-petrol"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        {label}
+        <ChevronIcon open={open} />
+      </button>
+      {open && (
+        <div className="mt-2 flex flex-col gap-2 border-l border-black/10 pl-4">
+          {cards.map((card) => (
+            <Link key={card.href} href={card.href} className="text-sm text-petrol/80" onClick={onNavigate}>
+              {card.name}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Header({ lang }) {
   const [open, setOpen] = useState(false);
   const items = nav[lang];
   return (
     <header className="sticky top-0 z-40 border-b border-black/10 bg-cream/95 backdrop-blur">
-      <div className="wrap flex items-center justify-between gap-4 py-3">
-        <Link href={`/${lang}`} aria-label="The Arper Group">
+      <div className="wrap-wide flex items-center justify-between gap-4 py-3">
+        <Link href={`/${lang}`} aria-label="The Arper Group" className="shrink-0">
           <Logo className="h-7 w-auto" priority />
         </Link>
-        <nav className="hidden items-center gap-6 md:flex">
-          {items.map((it) => (
-            <Link key={it.href} href={it.href} className="text-sm text-petrol hover:text-ink">{it.label}</Link>
-          ))}
-          <SearchButton lang={lang} variant="petrol" />
+        <nav className="hidden items-center gap-5 xl:flex">
+          {items.map((it) =>
+            it.href.endsWith('/communities') ? (
+              <CommunitiesDropdown key={it.href} lang={lang} label={it.label} />
+            ) : (
+              <Link key={it.href} href={it.href} className="whitespace-nowrap text-sm text-petrol hover:text-ink">{it.label}</Link>
+            )
+          )}
+          <SearchButton lang={lang} variant="petrol" className="whitespace-nowrap" />
           <LangToggle lang={lang} />
         </nav>
-        <button className="md:hidden text-sm text-petrol" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <button className="text-sm text-petrol xl:hidden" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
           {open ? ui[lang].close : ui[lang].menu}
         </button>
       </div>
       {open && (
-        <div className="border-t border-black/10 bg-cream md:hidden">
-          <div className="wrap flex flex-col gap-3 py-4">
-            {items.map((it) => (
-              <Link key={it.href} href={it.href} className="text-sm text-petrol" onClick={() => setOpen(false)}>{it.label}</Link>
-            ))}
+        <div className="border-t border-black/10 bg-cream xl:hidden">
+          <div className="wrap-wide flex flex-col gap-3 py-4">
+            {items.map((it) =>
+              it.href.endsWith('/communities') ? (
+                <CommunitiesAccordion key={it.href} lang={lang} label={it.label} onNavigate={() => setOpen(false)} />
+              ) : (
+                <Link key={it.href} href={it.href} className="text-sm text-petrol" onClick={() => setOpen(false)}>{it.label}</Link>
+              )
+            )}
             <div className="flex items-center gap-4 pt-2">
               <SearchButton lang={lang} variant="petrol" />
               <LangToggle lang={lang} />
