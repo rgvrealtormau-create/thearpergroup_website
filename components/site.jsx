@@ -22,13 +22,28 @@ export function SearchButton({ lang, campaign = 'nav', className = '', variant =
   );
 }
 
-export function LangToggle({ lang }) {
+export function LangToggle({ lang, className = '' }) {
   const pathname = usePathname();
-  const target = otherLang(lang);
   return (
-    <Link href={swapLangInPath(pathname, target)} className="text-sm link-underline" prefetch={false}>
-      {ui[lang].lang}
-    </Link>
+    <div className={`flex items-center gap-1 text-xs font-medium tracking-wide ${className}`}>
+      <Link
+        href={swapLangInPath(pathname, 'en')}
+        prefetch={false}
+        aria-current={lang === 'en' ? 'true' : undefined}
+        className={lang === 'en' ? 'text-ink' : 'text-petrol/50 hover:text-petrol'}
+      >
+        EN
+      </Link>
+      <span className="text-petrol/30">/</span>
+      <Link
+        href={swapLangInPath(pathname, 'es')}
+        prefetch={false}
+        aria-current={lang === 'es' ? 'true' : undefined}
+        className={lang === 'es' ? 'text-ink' : 'text-petrol/50 hover:text-petrol'}
+      >
+        ES
+      </Link>
+    </div>
   );
 }
 
@@ -45,8 +60,8 @@ export function Header({ lang }) {
           {items.map((it) => (
             <Link key={it.href} href={it.href} className="text-sm text-petrol hover:text-ink">{it.label}</Link>
           ))}
-          <LangToggle lang={lang} />
           <SearchButton lang={lang} variant="petrol" />
+          <LangToggle lang={lang} />
         </nav>
         <button className="md:hidden text-sm text-petrol" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
           {open ? ui[lang].close : ui[lang].menu}
@@ -59,8 +74,8 @@ export function Header({ lang }) {
               <Link key={it.href} href={it.href} className="text-sm text-petrol" onClick={() => setOpen(false)}>{it.label}</Link>
             ))}
             <div className="flex items-center gap-4 pt-2">
-              <LangToggle lang={lang} />
               <SearchButton lang={lang} variant="petrol" />
+              <LangToggle lang={lang} />
             </div>
           </div>
         </div>
