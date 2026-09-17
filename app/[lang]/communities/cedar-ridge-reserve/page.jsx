@@ -8,6 +8,11 @@ import CedarRidgeForm from '../../../../components/CedarRidgeForm';
 // is the source of truth this board reads from.
 const BUILDHERE_EMBED_URL = 'https://subdivision-plat-app.vercel.app/c/cedar-ridge-reserve-892049';
 
+// Subdivision location, from Mauricio's Google Maps pin.
+const LOCATION = { lat: 26.161307, lng: -97.696753 };
+const MAP_EMBED_SRC = `https://maps.google.com/maps?q=${LOCATION.lat},${LOCATION.lng}&z=15&output=embed`;
+const MAP_DIRECTIONS_URL = 'https://maps.app.goo.gl/tMXadrrHkoRzyF4f7';
+
 export async function generateMetadata({ params }) {
   const c = cedarRidge[params.lang];
   return {
@@ -32,6 +37,7 @@ export default function CedarRidgeReserve({ params }) {
     name: 'Cedar Ridge Reserve',
     description: c.metaDesc,
     address: { '@type': 'PostalAddress', addressLocality: 'Harlingen', addressRegion: 'TX', addressCountry: 'US' },
+    geo: { '@type': 'GeoCoordinates', latitude: LOCATION.lat, longitude: LOCATION.lng },
   };
   const breadcrumb = breadcrumbSchema([
     { name: c.breadcrumb.home, url: `${BUSINESS.url}/${lang}` },
@@ -48,17 +54,40 @@ export default function CedarRidgeReserve({ params }) {
       <section className="bg-crnavy text-crivory">
         <div className="wrap py-12 md:py-16">
           <h1 className="sr-only">Cedar Ridge Reserve — {c.hero.placeLine}</h1>
-          <CedarRidgeLogo card className="mb-6" />
-          <p className="font-crsans text-sm uppercase tracking-[0.3em] text-crbrass">{c.hero.tagline}</p>
-          <p className="mt-6 max-w-2xl text-lg text-crivory/85">{c.hero.lede}</p>
-          <p className="mt-4 text-sm text-crivory/70">📍 {c.hero.placeLine}</p>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <a href="#availability" className="inline-flex items-center justify-center rounded-sm bg-crbrass px-5 py-3 text-sm font-medium text-crnavy hover:bg-[#c49a5e]">
-              {c.hero.ctaAvailability}
-            </a>
-            <a href="#contact" className="inline-flex items-center justify-center rounded-sm border border-crivory/40 px-5 py-3 text-sm font-medium text-crivory hover:border-crivory">
-              {c.hero.ctaContact}
-            </a>
+          <div className="grid gap-10 lg:grid-cols-[1fr_22rem] lg:items-center">
+            <div>
+              <CedarRidgeLogo card className="mb-6" />
+              <p className="font-crsans text-sm uppercase tracking-[0.3em] text-crbrass">{c.hero.tagline}</p>
+              <p className="mt-6 max-w-2xl text-lg text-crivory/85">{c.hero.lede}</p>
+              <p className="mt-4 text-sm text-crivory/70">📍 {c.hero.placeLine}</p>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <a href="#availability" className="inline-flex items-center justify-center rounded-sm bg-crbrass px-5 py-3 text-sm font-medium text-crnavy hover:bg-[#c49a5e]">
+                  {c.hero.ctaAvailability}
+                </a>
+                <a href="#contact" className="inline-flex items-center justify-center rounded-sm border border-crivory/40 px-5 py-3 text-sm font-medium text-crivory hover:border-crivory">
+                  {c.hero.ctaContact}
+                </a>
+              </div>
+            </div>
+            <div>
+              <div className="overflow-hidden rounded-sm border border-crivory/15">
+                <iframe
+                  src={MAP_EMBED_SRC}
+                  title={c.hero.mapTitle}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="h-64 w-full border-0 lg:h-72"
+                />
+              </div>
+              <a
+                href={MAP_DIRECTIONS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-block text-sm text-crivory/70 link-underline hover:text-crivory"
+              >
+                {c.hero.directions} →
+              </a>
+            </div>
           </div>
         </div>
       </section>
