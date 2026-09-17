@@ -83,7 +83,12 @@ function SocialGroup({ person }) {
 }
 
 export function Footer({ lang }) {
+  const pathname = usePathname();
   const f = footerCopy[lang];
+  // Cedar Ridge Reserve carries its own developer credit alongside the shared brokerage attribution.
+  const extraCredit = pathname?.includes('/communities/cedar-ridge-reserve')
+    ? (lang === 'es' ? 'Desarrollado por REA Contractors' : 'Developed by REA Contractors')
+    : null;
   return (
     <footer className="mt-24 bg-ink text-cream">
       <div className="wrap grid gap-10 py-14 md:grid-cols-3">
@@ -114,7 +119,7 @@ export function Footer({ lang }) {
       </div>
       <div className="border-t border-cream/15">
         <div className="wrap py-4 text-xs text-cream/60">
-          © {new Date().getFullYear()} The Arper Group · Alliance Real Estate Group. {f.rights}
+          © {new Date().getFullYear()} The Arper Group · Alliance Real Estate Group{extraCredit ? ` · ${extraCredit}` : ''}. {f.rights}
         </div>
       </div>
     </footer>

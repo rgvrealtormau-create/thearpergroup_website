@@ -2,7 +2,7 @@ import '../globals.css';
 import { Header, Footer } from '../../components/site';
 import JsonLd from '../../components/JsonLd';
 import { BUSINESS, BUSINESS_ID, WEBSITE_ID, MAU_ID, PAM_ID, SAME_AS, SOCIAL, LANGS, pageAlternates } from '../../lib/site';
-import { halyard, larken } from '../../lib/fonts';
+import { halyard, larken, cormorant, jost } from '../../lib/fonts';
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -91,7 +91,7 @@ export default function LangLayout({ children, params }) {
     sameAs: [SOCIAL.pam.instagram, SOCIAL.pam.facebook, SOCIAL.pam.tiktok],
   };
   return (
-    <html lang={lang} className={`${halyard.variable} ${larken.variable}`}>
+    <html lang={lang} className={`${halyard.variable} ${larken.variable} ${cormorant.variable} ${jost.variable}`}>
       <body>
         <JsonLd data={org} />
         <JsonLd data={website} />
