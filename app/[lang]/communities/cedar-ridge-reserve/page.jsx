@@ -56,7 +56,7 @@ export default function CedarRidgeReserve({ params }) {
           <h1 className="sr-only">Cedar Ridge Reserve — {c.hero.placeLine}</h1>
           <div className="grid gap-10 lg:grid-cols-[1fr_22rem] lg:items-center">
             <div>
-              <CedarRidgeLogo card className="mb-6" />
+              <CedarRidgeLogo reversed className="mb-6" />
               <p className="font-crsans text-sm uppercase tracking-[0.3em] text-crbrass">{c.hero.tagline}</p>
               <p className="mt-6 max-w-2xl text-lg text-crivory/85">{c.hero.lede}</p>
               <p className="mt-4 text-sm text-crivory/70">📍 {c.hero.placeLine}</p>
