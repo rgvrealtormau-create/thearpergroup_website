@@ -1,8 +1,10 @@
+import { Suspense } from 'react';
 import { cedarRidge } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 import { CedarRidgeLogo } from '../../../../components/CedarRidgeLogo';
 import CedarRidgeForm from '../../../../components/CedarRidgeForm';
+import CedarRidgeAvailabilityMap from '../../../../components/CedarRidgeAvailabilityMap';
 
 // Buildhere lot-availability board. The Cedar_Ridge_Lot_Master Drive sheet
 // is the source of truth this board reads from.
@@ -134,7 +136,7 @@ export default function CedarRidgeReserve({ params }) {
       </section>
 
       {/* Availability & pricing */}
-      <section id="availability" className="bg-crnavy text-crivory">
+      <section id="availability" className="scroll-mt-16 bg-crnavy text-crivory">
         <div className="wrap py-16 md:py-24">
           <p className="text-sm uppercase tracking-[0.2em] text-crbrass">{c.availability.eyebrow}</p>
           <h2 className="mt-3 font-crserif text-3xl md:text-5xl">{c.availability.title}</h2>
@@ -148,15 +150,9 @@ export default function CedarRidgeReserve({ params }) {
           </div>
 
           {BUILDHERE_EMBED_URL ? (
-            <iframe
-              src={BUILDHERE_EMBED_URL}
-              title={c.availability.embedTitle}
-              loading="lazy"
-              allowFullScreen
-              width="100%"
-              height={800}
-              className="mt-8 w-full rounded-xl border-0"
-            />
+            <Suspense fallback={<div className="mt-8 h-[800px] w-full rounded-xl bg-crivory/5" />}>
+              <CedarRidgeAvailabilityMap baseUrl={BUILDHERE_EMBED_URL} embedTitle={c.availability.embedTitle} />
+            </Suspense>
           ) : (
             <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-sm border border-dashed border-crivory/25 bg-crivory/5 px-6 py-16 text-center">
               <span className="font-crserif text-2xl text-crivory/80" style={{ fontStyle: 'italic' }}>{c.availability.comingSoonTitle}</span>
