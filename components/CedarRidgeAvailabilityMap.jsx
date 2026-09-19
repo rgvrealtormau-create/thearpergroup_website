@@ -42,6 +42,7 @@ function updateLotUrl(pathname, lotId) {
   url.pathname = pathname;
   url.hash = 'availability';
   window.history.replaceState(null, '', url);
+  window.dispatchEvent(new CustomEvent('cedar-ridge:lot-selected', { detail: { lotId } }));
 }
 
 export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, inventory, lang = 'en' }) {

@@ -8,6 +8,25 @@ import { sendBrivityEmail } from '../../../lib/brivity';
 export const runtime = 'nodejs';
 
 const LANGUAGE_LABEL = { en: 'English', es: 'Spanish' };
+const CEDAR_RIDGE_INVENTORY_URL = 'https://subdivision-plat-app.vercel.app/api/public/communities/cedar-ridge-reserve-892049/inventory';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function money(value) {
+  if (value == null) return null;
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+}
+
+async function getCurrentCedarRidgeLot(lotId) {
+  if (!UUID_RE.test(lotId || '')) return null;
+  try {
+    const response = await fetch(CEDAR_RIDGE_INVENTORY_URL, { cache: 'no-store' });
+    if (!response.ok) return null;
+    const inventory = await response.json();
+    return inventory.lots?.find((lot) => lot.id === lotId) || null;
+  } catch {
+    return null;
+  }
+}
 
 // Every soft-capture form on the site shares this shape (name + phone, optional
 // email/detail) except home_valuation, which is handled separately below.
@@ -37,7 +56,7 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { formType, lang, name, email, phone, address, detail } = body || {};
+  const { formType, lang, name, email, phone, address, detail, lotId } = body || {};
 
   if (!name || (!email && !phone)) {
     return NextResponse.json({ ok: false, error: 'Missing name or contact info' }, { status: 400 });
@@ -47,13 +66,18 @@ export async function POST(request) {
   const submittedAt = new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' });
 
   const meta = FORM_META[formType] || FORM_META.home_valuation;
-  const brivityNote = formType === 'home_valuation' && address
+  const selectedLot = formType === 'cedar_ridge_reserve' ? await getCurrentCedarRidgeLot(lotId) : null;
+  const lotAttribution = selectedLot
+    ? `Lot ${selectedLot.lot_number}${selectedLot.phase ? ` · Phase ${selectedLot.phase}` : ''}${selectedLot.public_status ? ` · ${selectedLot.public_status}` : ''}${selectedLot.price != null ? ` · ${money(selectedLot.price)}` : ''} · UUID ${selectedLot.id}`
+    : null;
+  const baseBrivityNote = formType === 'home_valuation' && address
     ? `${meta.note} — ${address}`
     : meta.note;
+  const brivityNote = lotAttribution ? `${baseBrivityNote} — ${lotAttribution}` : baseBrivityNote;
   const brivityNoteWithLang = lang ? `${brivityNote} (${String(lang).toUpperCase()})` : brivityNote;
 
   const sheetNotes = detail
-    ? `${brivityNote} — submitted ${submittedAt} CT\n${detail}`
+    ? `${brivityNote} — submitted ${submittedAt} CT\nBuyer message: ${detail}`
     : `${brivityNote} — submitted ${submittedAt} CT`;
 
   const howIKnowThem = meta.label;

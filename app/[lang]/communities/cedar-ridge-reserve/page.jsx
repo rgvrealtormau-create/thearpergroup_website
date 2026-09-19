@@ -184,7 +184,9 @@ export default async function CedarRidgeReserve({ params }) {
               <p>rgvrealtormau@gmail.com</p>
             </div>
           </div>
-          <CedarRidgeForm lang={lang} copy={c.contact} />
+          <Suspense fallback={<div className="h-96 rounded-sm border border-crnavy/10 bg-white/40" />}>
+            <CedarRidgeForm lang={lang} copy={c.contact} inventory={inventory} />
+          </Suspense>
         </div>
       </section>
     </div>

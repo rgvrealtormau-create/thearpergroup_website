@@ -1,13 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
 
-export default function CedarRidgeForm({ lang, copy }) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const LOT_COPY = {
+  en: { heading: 'Inquiry about', phase: 'Phase', status: 'Status', price: 'Price' },
+  es: { heading: 'Consulta sobre', phase: 'Fase', status: 'Estatus', price: 'Precio' },
+};
+
+function money(value) {
+  if (value == null) return null;
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+}
+
+export default function CedarRidgeForm({ lang, copy, inventory }) {
+  const searchParams = useSearchParams();
+  const initialLotId = searchParams.get('lot');
+  const [selectedLotId, setSelectedLotId] = useState(UUID_RE.test(initialLotId || '') ? initialLotId : null);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const c = copy.fields;
+  const lotCopy = LOT_COPY[lang] || LOT_COPY.en;
+  const selectedLot = inventory?.lots?.find((lot) => lot.id === selectedLotId) || null;
+
+  useEffect(() => {
+    function receive(event) {
+      const lotId = event.detail?.lotId;
+      setSelectedLotId(typeof lotId === 'string' && UUID_RE.test(lotId) ? lotId : null);
+    }
+    window.addEventListener('cedar-ridge:lot-selected', receive);
+    return () => window.removeEventListener('cedar-ridge:lot-selected', receive);
+  }, []);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -25,6 +51,7 @@ export default function CedarRidgeForm({ lang, copy }) {
           email: data.get('email'),
           phone: data.get('phone'),
           detail: data.get('message'),
+          lotId: selectedLot?.id || null,
         }),
       }).catch(() => {});
     }
@@ -37,9 +64,11 @@ export default function CedarRidgeForm({ lang, copy }) {
           name: data.get('name'),
           email: data.get('email'),
           phone: data.get('phone'),
-          message: data.get('message'),
+          message: selectedLot
+            ? `Cedar Ridge Reserve — Lot ${selectedLot.lot_number}\nLot UUID: ${selectedLot.id}\nPhase: ${selectedLot.phase || 'Not provided'}\nStatus: ${selectedLot.public_status || 'Not provided'}\nCurrent public price: ${money(selectedLot.price) || 'Not published'}\n\nBuyer message:\n${data.get('message') || ''}`
+            : data.get('message'),
           botcheck: data.get('botcheck'),
-          subject: 'New Cedar Ridge Reserve inquiry',
+          subject: selectedLot ? `Cedar Ridge Reserve — Lot ${selectedLot.lot_number} inquiry` : 'New Cedar Ridge Reserve inquiry',
           from_name: 'Cedar Ridge Reserve — thearpergroup.com',
           replyto: data.get('email'),
           page: 'Cedar Ridge Reserve',
@@ -65,6 +94,17 @@ export default function CedarRidgeForm({ lang, copy }) {
 
   return (
     <form onSubmit={onSubmit} className="grid gap-4">
+      {selectedLot && <div className="rounded-sm border border-crbrass/45 bg-crbrass/10 p-4" aria-live="polite">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-crbrass">{lotCopy.heading}</p>
+        <p className="mt-1 font-crserif text-2xl">Cedar Ridge Reserve — Lot {selectedLot.lot_number}</p>
+        <p className="mt-2 text-sm text-crslate">{[
+          selectedLot.phase ? `${lotCopy.phase} ${selectedLot.phase}` : null,
+          selectedLot.public_status ? `${lotCopy.status}: ${selectedLot.public_status}` : null,
+          selectedLot.price != null ? `${lotCopy.price}: ${money(selectedLot.price)}` : null,
+        ].filter(Boolean).join(' · ')}</p>
+      </div>}
+      <input type="hidden" name="lot_id" value={selectedLot?.id || ''} />
+      <input type="hidden" name="lot_number" value={selectedLot?.lot_number || ''} />
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1 text-sm">
           <span>{c.name}</span>
