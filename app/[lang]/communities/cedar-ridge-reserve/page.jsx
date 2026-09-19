@@ -6,9 +6,21 @@ import { CedarRidgeLogo } from '../../../../components/CedarRidgeLogo';
 import CedarRidgeForm from '../../../../components/CedarRidgeForm';
 import CedarRidgeAvailabilityMap from '../../../../components/CedarRidgeAvailabilityMap';
 
-// Buildhere lot-availability board. The Cedar_Ridge_Lot_Master Drive sheet
-// is the source of truth this board reads from.
+// BuildHere is the single source of truth for public Cedar Ridge inventory.
 const BUILDHERE_EMBED_URL = 'https://subdivision-plat-app.vercel.app/c/cedar-ridge-reserve-892049';
+const BUILDHERE_INVENTORY_URL = 'https://subdivision-plat-app.vercel.app/api/public/communities/cedar-ridge-reserve-892049/inventory';
+
+export const revalidate = 30;
+
+async function getInventory() {
+  try {
+    const response = await fetch(BUILDHERE_INVENTORY_URL, { next: { revalidate: 30 } });
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  }
+}
 
 // Subdivision location, from Mauricio's Google Maps pin.
 const LOCATION = { lat: 26.161307, lng: -97.696753 };
@@ -29,9 +41,10 @@ function Diamond() {
   return <span aria-hidden="true" className="h-1.5 w-1.5 rotate-45 bg-crbrass" />;
 }
 
-export default function CedarRidgeReserve({ params }) {
+export default async function CedarRidgeReserve({ params }) {
   const lang = params.lang;
   const c = cedarRidge[lang];
+  const inventory = await getInventory();
 
   const place = {
     '@context': 'https://schema.org',
@@ -142,16 +155,9 @@ export default function CedarRidgeReserve({ params }) {
           <h2 className="mt-3 font-crserif text-3xl md:text-5xl">{c.availability.title}</h2>
           <p className="mt-4 max-w-2xl text-crivory/75">{c.availability.lede}</p>
 
-          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-xs uppercase tracking-wide text-crivory/70">
-            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400" />{c.availability.legend.available}</span>
-            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-crbrass" />{c.availability.legend.reserved}</span>
-            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" />{c.availability.legend.underContract}</span>
-            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-crivory/40" />{c.availability.legend.sold}</span>
-          </div>
-
-          {BUILDHERE_EMBED_URL ? (
+          {BUILDHERE_EMBED_URL && inventory ? (
             <Suspense fallback={<div className="mt-8 h-[800px] w-full rounded-xl bg-crivory/5" />}>
-              <CedarRidgeAvailabilityMap baseUrl={BUILDHERE_EMBED_URL} embedTitle={c.availability.embedTitle} />
+              <CedarRidgeAvailabilityMap baseUrl={BUILDHERE_EMBED_URL} embedTitle={c.availability.embedTitle} inventory={inventory} lang={lang} />
             </Suspense>
           ) : (
             <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-sm border border-dashed border-crivory/25 bg-crivory/5 px-6 py-16 text-center">
