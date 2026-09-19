@@ -3,7 +3,7 @@ import { cedarRidge } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 import { CedarRidgeLogo } from '../../../../components/CedarRidgeLogo';
-import CedarRidgeForm from '../../../../components/CedarRidgeForm';
+import CedarRidgeFormWithInventory from '../../../../components/CedarRidgeFormWithInventory';
 import CedarRidgeMapEmbed from '../../../../components/CedarRidgeMapEmbed';
 
 // BuildHere is the single source of truth for public Cedar Ridge inventory.
@@ -155,7 +155,7 @@ export default async function CedarRidgeReserve({ params }) {
           <h2 className="mt-3 font-crserif text-3xl md:text-5xl">{c.availability.title}</h2>
           <p className="mt-4 max-w-2xl text-crivory/75">{c.availability.lede}</p>
 
-          {BUILDHERE_EMBED_URL && inventory ? (
+          {BUILDHERE_EMBED_URL ? (
             <Suspense fallback={<div className="mt-8 h-[800px] w-full rounded-xl bg-crivory/5" />}>
               <CedarRidgeMapEmbed
                 baseUrl={BUILDHERE_EMBED_URL}
@@ -190,7 +190,7 @@ export default async function CedarRidgeReserve({ params }) {
             </div>
           </div>
           <Suspense fallback={<div className="h-96 rounded-sm border border-crnavy/10 bg-white/40" />}>
-            <CedarRidgeForm lang={lang} copy={c.contact} inventory={inventory} />
+            <CedarRidgeFormWithInventory initialInventory={inventory} lang={lang} copy={c.contact} />
           </Suspense>
         </div>
       </section>
