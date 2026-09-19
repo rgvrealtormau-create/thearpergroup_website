@@ -4,7 +4,7 @@ import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site
 import JsonLd from '../../../../components/JsonLd';
 import { CedarRidgeLogo } from '../../../../components/CedarRidgeLogo';
 import CedarRidgeForm from '../../../../components/CedarRidgeForm';
-import CedarRidgeAvailabilityMap from '../../../../components/CedarRidgeAvailabilityMap';
+import CedarRidgeMapEmbed from '../../../../components/CedarRidgeMapEmbed';
 
 // BuildHere is the single source of truth for public Cedar Ridge inventory.
 const BUILDHERE_EMBED_URL = 'https://subdivision-plat-app.vercel.app/c/cedar-ridge-reserve-892049';
@@ -157,7 +157,12 @@ export default async function CedarRidgeReserve({ params }) {
 
           {BUILDHERE_EMBED_URL && inventory ? (
             <Suspense fallback={<div className="mt-8 h-[800px] w-full rounded-xl bg-crivory/5" />}>
-              <CedarRidgeAvailabilityMap baseUrl={BUILDHERE_EMBED_URL} embedTitle={c.availability.embedTitle} inventory={inventory} lang={lang} />
+              <CedarRidgeMapEmbed
+                baseUrl={BUILDHERE_EMBED_URL}
+                embedTitle={c.availability.embedTitle}
+                inventoryPath={`/${lang}/communities/cedar-ridge-reserve/inventory`}
+                lang={lang}
+              />
             </Suspense>
           ) : (
             <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-sm border border-dashed border-crivory/25 bg-crivory/5 px-6 py-16 text-center">

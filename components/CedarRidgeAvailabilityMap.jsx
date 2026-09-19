@@ -50,6 +50,7 @@ export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, invento
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const iframeRef = useRef(null);
+  const detailRef = useRef(null);
   const cardRefs = useRef(new Map());
   const initialLot = searchParams.get('lot');
   const initialLotId = initialLot && UUID_RE.test(initialLot) ? initialLot : null;
@@ -77,6 +78,7 @@ export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, invento
   const iframeSrc = useMemo(() => {
     const url = new URL(baseUrl);
     url.searchParams.set('embed', '1');
+    url.searchParams.set('view', 'map');
     if (initialLotId) url.searchParams.set('lot', initialLotId);
     return url.toString();
   }, [baseUrl, initialLotId]);
@@ -90,7 +92,9 @@ export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, invento
     setSelectedId(nextId);
     updateLotUrl(pathname, nextId);
     if (!fromMap) send(lot ? 'BUILDHERE_SELECT_LOT' : 'BUILDHERE_CLEAR_SELECTION', lot ? { lotId: lot.id } : {});
-    if (lot) window.setTimeout(() => cardRefs.current.get(lot.id)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    if (lot && fromMap && window.matchMedia('(max-width: 1023px)').matches) {
+      window.setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }
   }
 
   function applyStatuses(next) {
@@ -129,6 +133,12 @@ export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, invento
     return () => window.removeEventListener('message', receive);
   }, [activeStatuses, lots, pathname, selectedId]);
 
+  useEffect(() => {
+    if (!initialLotId) return undefined;
+    const timer = window.setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250);
+    return () => window.clearTimeout(timer);
+  }, [initialLotId]);
+
   if (!inventory || !lots.length) {
     return <div className="mt-8 rounded-sm border border-crivory/20 bg-crivory/5 p-8 text-center text-crivory/70">{copy.noMatches}</div>;
   }
@@ -149,12 +159,61 @@ export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, invento
       </div>
     </div>
 
-    <iframe ref={iframeRef} src={iframeSrc} title={embedTitle} loading="eager" allowFullScreen width="100%" height={800} className="mt-4 h-[620px] w-full rounded-sm border border-crivory/15 bg-white md:h-[800px]" />
+    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <iframe ref={iframeRef} src={iframeSrc} title={embedTitle} loading="eager" allowFullScreen width="100%" height={720} className="h-[560px] w-full rounded-sm border border-crivory/15 bg-white lg:h-[720px]" />
 
-    <div className="mt-10 flex items-end justify-between gap-4"><div><p className="text-xs uppercase tracking-[0.2em] text-crbrass">{visibleLots.length} {copy.shown}</p><h3 className="mt-2 font-crserif text-3xl">{copy.matching}</h3></div>{selected ? <button type="button" onClick={() => selectLot(null)} className="text-sm text-crivory/65 underline underline-offset-4">{copy.clear}</button> : null}</div>
+      <div ref={detailRef} className="scroll-mt-20">
+        {selected ? (
+          <aside className="rounded-sm border border-crbrass/40 bg-crivory p-5 text-crnavy lg:sticky lg:top-20" aria-live="polite">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-crbrass">{copy[statusKey(selected.public_status)] || selected.public_status}</span>
+                <h3 className="mt-1 font-crserif text-3xl">Lot {selected.lot_number}</h3>
+              </div>
+              <button type="button" onClick={() => selectLot(null)} className="text-sm text-crslate underline underline-offset-4">{copy.clear}</button>
+            </div>
+            <dl className="mt-5 grid gap-4">
+              {selected.phase ? <div><dt className="text-xs uppercase tracking-wide text-crslate">{copy.phaseLabel}</dt><dd className="mt-1 font-medium">{selected.phase}</dd></div> : null}
+              {selected.price != null ? <div><dt className="text-xs uppercase tracking-wide text-crslate">{copy.priceLabel}</dt><dd className="mt-1 font-medium">{money(selected.price)}</dd></div> : null}
+              {selected.sqft != null ? <div><dt className="text-xs uppercase tracking-wide text-crslate">{copy.sizeLabel}</dt><dd className="mt-1 font-medium">{selected.sqft.toLocaleString()} {copy.sqFt}{selected.acres != null ? ` · ${selected.acres} ac` : ''}</dd></div> : null}
+              {selected.address ? <div><dt className="text-xs uppercase tracking-wide text-crslate">{copy.address}</dt><dd className="mt-1 font-medium">{selected.address}</dd></div> : null}
+              {selected.builder ? <div><dt className="text-xs uppercase tracking-wide text-crslate">{copy.builder}</dt><dd className="mt-1 font-medium">{selected.builder}</dd></div> : null}
+            </dl>
+            <a href="#contact" className="mt-6 block rounded-sm bg-crnavy px-4 py-3 text-center text-sm font-medium text-crivory hover:bg-crslate">{copy.ask}</a>
+          </aside>
+        ) : (
+          <div className="rounded-sm border border-dashed border-crivory/20 p-6 text-crivory/65">
+            <strong className="font-crserif text-xl text-crivory">{copy.select}</strong>
+            <p className="mt-1 text-sm">{copy.selectHelp}</p>
+          </div>
+        )}
+      </div>
+    </div>
 
-    {selected ? <aside className="mt-5 rounded-sm border border-crbrass/40 bg-crivory p-5 text-crnavy md:p-6" aria-live="polite"><div className="flex flex-wrap items-start justify-between gap-4"><div><span className="text-xs font-semibold uppercase tracking-[0.16em] text-crbrass">{copy[statusKey(selected.public_status)] || selected.public_status}</span><h3 className="mt-1 font-crserif text-3xl">Lot {selected.lot_number}</h3></div><a href={`#contact`} className="rounded-sm bg-crnavy px-4 py-2.5 text-sm font-medium text-crivory hover:bg-crslate">{copy.ask}</a></div><dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{selected.phase ? <div><dt className="text-xs uppercase tracking-wide text-crslate">{copy.phaseLabel}</dt><dd className="mt-1 font-medium">{selected.phase}</dd></div> : null}{selected.price != null ? <div><dt className="text-xs uppercase tracking-wide text-crslate">{copy.priceLabel}</dt><dd className="mt-1 font-medium">{money(selected.price)}</dd></div> : null}{selected.sqft != null ? <div><dt className="text-xs uppercase tracking-wide text-crslate">{copy.sizeLabel}</dt><dd className="mt-1 font-medium">{selected.sqft.toLocaleString()} {copy.sqFt}{selected.acres != null ? ` · ${selected.acres} ac` : ''}</dd></div> : null}{selected.address ? <div><dt className="text-xs uppercase tracking-wide text-crslate">{copy.address}</dt><dd className="mt-1 font-medium">{selected.address}</dd></div> : null}{selected.builder ? <div><dt className="text-xs uppercase tracking-wide text-crslate">{copy.builder}</dt><dd className="mt-1 font-medium">{selected.builder}</dd></div> : null}</dl></aside> : <div className="mt-5 rounded-sm border border-dashed border-crivory/20 p-6 text-crivory/65"><strong className="font-crserif text-xl text-crivory">{copy.select}</strong><p className="mt-1 text-sm">{copy.selectHelp}</p></div>}
+    <div className="mt-10 flex items-end justify-between gap-4">
+      <div><p className="text-xs uppercase tracking-[0.2em] text-crbrass">{visibleLots.length} {copy.shown}</p><h3 className="mt-2 font-crserif text-3xl">{copy.matching}</h3></div>
+    </div>
 
-    {visibleLots.length ? <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{visibleLots.map((lot) => <article ref={(node) => { if (node) cardRefs.current.set(lot.id, node); else cardRefs.current.delete(lot.id); }} key={lot.id} onClick={() => selectLot(lot)} className={`cursor-pointer rounded-sm border p-4 transition [content-visibility:auto] ${selectedId === lot.id ? 'border-crbrass bg-crbrass/15 ring-1 ring-crbrass' : 'border-crivory/15 bg-crivory/5 hover:border-crivory/40'}`}><div className="flex items-start justify-between gap-3"><div><span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-crbrass">{copy[statusKey(lot.public_status)] || lot.public_status}</span><h4 className="mt-1 font-crserif text-2xl">Lot {lot.lot_number}</h4></div>{lot.price != null ? <strong className="text-sm">{money(lot.price)}</strong> : null}</div><div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-crivory/65">{lot.phase ? <span>{copy.phaseLabel} {lot.phase}</span> : null}{lot.sqft != null ? <span>{lot.sqft.toLocaleString()} {copy.sqFt}</span> : null}{lot.acres != null ? <span>{lot.acres} ac</span> : null}</div></article>)}</div> : <div className="mt-5 rounded-sm border border-dashed border-crivory/20 p-8 text-center text-crivory/65">{copy.noMatches}</div>}
+    {visibleLots.length ? (
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {visibleLots.map((lot) => (
+          <article ref={(node) => { if (node) cardRefs.current.set(lot.id, node); else cardRefs.current.delete(lot.id); }} key={lot.id} className={`rounded-sm border p-4 transition [content-visibility:auto] ${selectedId === lot.id ? 'border-crbrass bg-crbrass/15 ring-1 ring-crbrass' : 'border-crivory/15 bg-crivory/5 hover:border-crivory/40'}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div><span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-crbrass">{copy[statusKey(lot.public_status)] || lot.public_status}</span><h4 className="mt-1 font-crserif text-2xl">Lot {lot.lot_number}</h4></div>
+              {lot.price != null ? <strong className="text-sm">{money(lot.price)}</strong> : null}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-crivory/65">
+              {lot.phase ? <span>{copy.phaseLabel} {lot.phase}</span> : null}
+              {lot.sqft != null ? <span>{lot.sqft.toLocaleString()} {copy.sqFt}</span> : null}
+              {lot.acres != null ? <span>{lot.acres} ac</span> : null}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={() => selectLot(lot)} className="rounded-sm border border-crivory/30 px-3 py-2 text-xs font-medium text-crivory hover:border-crivory">{copy.select}</button>
+              <a href="#contact" onClick={() => selectLot(lot)} className="rounded-sm bg-crbrass px-3 py-2 text-xs font-semibold text-crnavy hover:bg-[#c49a5e]">{copy.ask}</a>
+            </div>
+          </article>
+        ))}
+      </div>
+    ) : <div className="mt-5 rounded-sm border border-dashed border-crivory/20 p-8 text-center text-crivory/65">{copy.noMatches}</div>}
   </div>;
 }
