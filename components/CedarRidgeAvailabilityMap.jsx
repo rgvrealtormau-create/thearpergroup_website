@@ -54,14 +54,18 @@ export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, invento
   const cardRefs = useRef(new Map());
   const initialLot = searchParams.get('lot');
   const initialLotId = initialLot && UUID_RE.test(initialLot) ? initialLot : null;
-  const lots = inventory?.lots || [];
+  const lots = useMemo(() => (inventory?.lots || []).slice().sort((a, b) =>
+    String(a.lot_number).localeCompare(String(b.lot_number), undefined, { numeric: true, sensitivity: 'base' })
+  ), [inventory]);
   const statuses = useMemo(() => STATUS_ORDER.filter((status) => lots.some((lot) => statusKey(lot.public_status) === status)), [lots]);
   const [activeStatuses, setActiveStatuses] = useState(() => new Set(statuses));
   const [phase, setPhase] = useState('all');
   const [price, setPrice] = useState('all');
   const [size, setSize] = useState('all');
   const [selectedId, setSelectedId] = useState(() => lots.some((lot) => lot.id === initialLotId) ? initialLotId : null);
-  const phases = useMemo(() => Array.from(new Set(lots.map((lot) => lot.phase).filter(Boolean))).sort(), [lots]);
+  const phases = useMemo(() => Array.from(new Set(lots.map((lot) => lot.phase).filter(Boolean))).sort((a, b) =>
+    String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' })
+  ), [lots]);
   const counts = useMemo(() => Object.fromEntries(STATUS_ORDER.map((status) => [status, lots.filter((lot) => statusKey(lot.public_status) === status).length])), [lots]);
   const selected = lots.find((lot) => lot.id === selectedId) || null;
 
