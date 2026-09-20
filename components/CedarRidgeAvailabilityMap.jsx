@@ -63,6 +63,7 @@ export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, invento
   const [price, setPrice] = useState('all');
   const [size, setSize] = useState('all');
   const [selectedId, setSelectedId] = useState(() => lots.some((lot) => lot.id === initialLotId) ? initialLotId : null);
+  const [iframeHeight, setIframeHeight] = useState(560);
   const phases = useMemo(() => Array.from(new Set(lots.map((lot) => lot.phase).filter(Boolean))).sort((a, b) =>
     String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' })
   ), [lots]);
@@ -122,6 +123,12 @@ export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, invento
       if (event.origin !== BUILDHERE_ORIGIN || event.source !== iframeRef.current?.contentWindow) return;
       const message = event.data;
       if (!message || message.source !== 'BUILDHERE' || message.version !== 1) return;
+      if (message.type === 'BUILDHERE_HEIGHT_CHANGED') {
+        const reportedHeight = Number(message.height);
+        if (Number.isFinite(reportedHeight)) {
+          setIframeHeight(Math.min(2000, Math.max(320, Math.ceil(reportedHeight))));
+        }
+      }
       if (message.type === 'BUILDHERE_READY') {
         send('BUILDHERE_SET_STATUS_FILTER', { statuses: Array.from(activeStatuses) });
         if (selectedId) send('BUILDHERE_SELECT_LOT', { lotId: selectedId });
@@ -164,7 +171,17 @@ export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, invento
     </div>
 
     <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-      <iframe ref={iframeRef} src={iframeSrc} title={embedTitle} loading="eager" allowFullScreen width="100%" height={720} className="h-[560px] w-full rounded-sm border border-crivory/15 bg-white lg:h-[720px]" />
+      <iframe
+        ref={iframeRef}
+        src={iframeSrc}
+        title={embedTitle}
+        loading="eager"
+        allowFullScreen
+        width="100%"
+        height={iframeHeight}
+        style={{ height: `${iframeHeight}px` }}
+        className="w-full rounded-sm border border-crivory/15 bg-white"
+      />
 
       <div ref={detailRef} className="scroll-mt-20">
         {selected ? (
