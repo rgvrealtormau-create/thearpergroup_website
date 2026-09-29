@@ -3,6 +3,8 @@ import Image from 'next/image';
 import { vittoria } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
+import VittoriaPaymentEstimator from '../../../../components/VittoriaPaymentEstimator';
+import { getMortgageRates } from '../../../../lib/fred';
 
 const PHOTO = (name) => `/photos/vittoria/${name}-hd.jpg`;
 const BOOKLET = '/downloads/vittoria-townhomes-booklet.pdf';
@@ -44,8 +46,9 @@ function DownloadButton({ label, tone = 'light' }) {
   );
 }
 
-export default function VittoriaPage({ params }) {
+export default async function VittoriaPage({ params }) {
   const lang = params.lang;
+  const rates = await getMortgageRates();
   const c = vittoria[lang];
 
   const breadcrumb = breadcrumbSchema([
@@ -112,7 +115,10 @@ export default function VittoriaPage({ params }) {
               ))}
             </ul>
 
-            <p className="mt-10 border-l-2 border-gold pl-4 text-ink/80">{c.downPayment}</p>
+            <p className="mt-10 border-l-2 border-gold pl-4 text-ink/80">
+              {c.downPayment}{' '}
+              <a href="#estimate" className="text-petrol link-underline">{c.estimateLink} ↓</a>
+            </p>
           </div>
 
           <div className="md:col-span-2">
@@ -127,6 +133,13 @@ export default function VittoriaPage({ params }) {
             </dl>
             <p className="mt-3 text-xs text-ink/55">{c.priceNote}</p>
           </div>
+        </div>
+      </section>
+
+      {/* Cash to close + monthly payment estimator */}
+      <section id="estimate" className="scroll-mt-24 border-t border-ink/10">
+        <div className="wrap py-16 md:py-20">
+          <VittoriaPaymentEstimator lang={lang} rates={rates} />
         </div>
       </section>
 
