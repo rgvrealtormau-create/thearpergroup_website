@@ -136,13 +136,6 @@ export default async function VittoriaPage({ params }) {
         </div>
       </section>
 
-      {/* Cash to close + monthly payment estimator */}
-      <section id="estimate" className="scroll-mt-24 border-t border-ink/10">
-        <div className="wrap py-16 md:py-20">
-          <VittoriaPaymentEstimator lang={lang} fha={fha} />
-        </div>
-      </section>
-
       {/* Rooms */}
       <section className="bg-cream/50">
         <div className="wrap space-y-20 py-16 md:py-20">
@@ -182,6 +175,13 @@ export default async function VittoriaPage({ params }) {
           ))}
         </div>
         <p className="mt-6 text-center text-xs text-ink/55">{c.plansNote}</p>
+      </section>
+
+      {/* Cash to close + monthly payment estimator */}
+      <section id="estimate" className="scroll-mt-24 border-t border-ink/10">
+        <div className="wrap py-16 md:py-20">
+          <VittoriaPaymentEstimator lang={lang} fha={fha} />
+        </div>
       </section>
 
       {/* Booklet download */}
