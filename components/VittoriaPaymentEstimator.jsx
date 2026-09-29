@@ -12,6 +12,7 @@ import { useMemo, useState } from 'react';
 // - TSAHC DPA: up to 5% of the loan amount for down payment and/or closing costs, as a grant
 //   or a 0% deferred second lien; grant-paired rates typically run ~0.25–0.50% above market.
 //   Income limits by county, 620+ credit, homebuyer education. tsahc.org/homebuyer-programs
+// - Rate: daily Optimal Blue 30-yr FHA index (FRED OBMMIFHA30YF) via getFhaRate(), + DPA premium.
 // - Closing-cost line items mirror ClosingCostEstimator.jsx defaults.
 
 const PRICE = 235000;
@@ -23,6 +24,7 @@ const FHA_CONCESSION_CAP = 0.06;
 const DPA_MAX = 5;
 const DPA_DEFAULT = 4;
 const DPA_RATE_PREMIUM = 0.375; // midpoint of the typical 0.25–0.50% range
+const HOA_ANNUAL = 137.5; // Vittoria HOA; a separate micro-HOA fee is still TBD
 const WESLACO_TAX_RATE = 0.023; // same Hidalgo County rate as the mortgage calculator
 const TERM_YEARS = 30;
 
@@ -44,11 +46,14 @@ const COPY = {
     dpaAmount: 'Assistance amount',
     dpaOfLoan: 'of the loan amount',
     rate: 'Interest rate',
-    rateNoteLive: 'Based on this week’s Freddie Mac 30-year average ({date}).',
+    rateNoteFha: 'Starts from the daily 30-year FHA rate index ({rate}% on {date}; source: Optimal Blue via FRED).',
+    rateNotePmms: 'Starts from Freddie Mac’s weekly 30-year average ({rate}% on {date}); the daily FHA index was unavailable.',
     rateNoteFallback: 'Placeholder rate; ask a lender for today’s rate.',
+    rateReset: 'Reset to today’s rate',
     rateNoteDpa: 'Includes +0.375% — rates paired with a DPA grant typically run 0.25–0.50% higher.',
     insurance: 'Homeowners insurance (per year)',
-    hoa: 'HOA dues (per month)',
+    hoa: 'HOA dues (per year)',
+    hoaNote: 'Vittoria’s HOA is $137.50/year. A separate micro-HOA fee is still being set by the builder and isn’t included yet.',
     cashTitle: 'Estimated cash to close',
     monthlyTitle: 'Estimated monthly payment',
     rows: {
@@ -92,11 +97,14 @@ const COPY = {
     dpaAmount: 'Monto de la ayuda',
     dpaOfLoan: 'del monto del préstamo',
     rate: 'Tasa de interés',
-    rateNoteLive: 'Basada en el promedio de 30 años de Freddie Mac de esta semana ({date}).',
+    rateNoteFha: 'Parte del índice diario de tasas FHA a 30 años ({rate}% al {date}; fuente: Optimal Blue vía FRED).',
+    rateNotePmms: 'Parte del promedio semanal de 30 años de Freddie Mac ({rate}% al {date}); el índice diario FHA no estuvo disponible.',
     rateNoteFallback: 'Tasa de referencia; pregúntale a un prestamista la tasa de hoy.',
+    rateReset: 'Volver a la tasa de hoy',
     rateNoteDpa: 'Incluye +0.375% — las tasas con subsidio de ayuda suelen ser 0.25–0.50% más altas.',
     insurance: 'Seguro de casa (por año)',
-    hoa: 'Cuota de HOA (por mes)',
+    hoa: 'Cuota de HOA (por año)',
+    hoaNote: 'La cuota de HOA de Vittoria es de $137.50 al año. Hay una cuota adicional de micro-HOA que el constructor todavía está definiendo y aún no está incluida.',
     cashTitle: 'Dinero estimado para cerrar',
     monthlyTitle: 'Pago mensual estimado',
     rows: {
@@ -135,6 +143,7 @@ const COPY = {
 };
 
 const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+const fmt2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const num = (v) => parseFloat(v) || 0;
 
 function monthlyPI(loan, ratePct, years) {
@@ -152,23 +161,24 @@ function formatDate(iso, lang) {
   return d.toLocaleDateString(lang === 'es' ? 'es-MX' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function VittoriaPaymentEstimator({ lang, rates }) {
+export default function VittoriaPaymentEstimator({ lang, fha }) {
   const c = COPY[lang] ?? COPY.en;
-  const baseRate = rates?.rate30 ?? 6.5;
+  const baseRate = fha?.rate ?? 6.5;
+  const rateFor = (dpa) => String(Math.round((baseRate + (dpa ? DPA_RATE_PREMIUM : 0)) * 1000) / 1000);
 
   const [useDpa, setUseDpa] = useState(true);
   const [dpaPct, setDpaPct] = useState(DPA_DEFAULT);
   // Rate is held as a string (avoids the leading-zero input bug); it tracks the
   // market rate (+ DPA premium) until the visitor edits it.
-  const [rateStr, setRateStr] = useState(String(Math.round((baseRate + DPA_RATE_PREMIUM) * 1000) / 1000));
+  const [rateStr, setRateStr] = useState(rateFor(true));
   const [rateTouched, setRateTouched] = useState(false);
   const [insurance, setInsurance] = useState('1800');
-  const [hoa, setHoa] = useState('0');
+  const [hoa, setHoa] = useState(String(HOA_ANNUAL));
   const [showDetail, setShowDetail] = useState(false);
 
   function toggleDpa(next) {
     setUseDpa(next);
-    if (!rateTouched) setRateStr(String(Math.round((baseRate + (next ? DPA_RATE_PREMIUM : 0)) * 1000) / 1000));
+    if (!rateTouched) setRateStr(rateFor(next));
   }
 
   const r = useMemo(() => {
@@ -204,7 +214,7 @@ export default function VittoriaPaymentEstimator({ lang, rates }) {
     const tax = annualTax / 12;
     const insM = ins / 12;
     const mip = (baseLoan * FHA_ANNUAL_MIP) / 12;
-    const hoaM = num(hoa);
+    const hoaM = num(hoa) / 12;
     const total = pi + tax + insM + mip + hoaM;
 
     return {
@@ -215,9 +225,10 @@ export default function VittoriaPaymentEstimator({ lang, rates }) {
     };
   }, [rateStr, insurance, hoa, useDpa, dpaPct]);
 
+  const sourceNote = fha?.source === 'fha' ? c.rateNoteFha : fha?.source === 'pmms' ? c.rateNotePmms : c.rateNoteFallback;
   const rateNote = rateTouched
     ? null
-    : [rates?.live ? c.rateNoteLive.replace('{date}', formatDate(rates.asOfDate, lang)) : c.rateNoteFallback, useDpa ? c.rateNoteDpa : null]
+    : [sourceNote.replace('{rate}', baseRate).replace('{date}', formatDate(fha?.asOfDate, lang)), useDpa ? c.rateNoteDpa : null]
         .filter(Boolean)
         .join(' ');
 
@@ -263,6 +274,9 @@ export default function VittoriaPaymentEstimator({ lang, rates }) {
               <span className="pointer-events-none absolute right-3 top-1/2 mt-0.5 -translate-y-1/2 text-ink/50">%</span>
             </div>
             {rateNote && <p className="mt-1.5 text-xs text-ink/55">{rateNote}</p>}
+            {rateTouched && (
+              <button type="button" onClick={() => { setRateStr(rateFor(useDpa)); setRateTouched(false); }} className="mt-1.5 text-xs text-petrol link-underline">{c.rateReset}</button>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -272,10 +286,11 @@ export default function VittoriaPaymentEstimator({ lang, rates }) {
             </div>
             <div>
               <label className="text-sm text-ink/70" htmlFor="vt-hoa">{c.hoa}</label>
-              <input id="vt-hoa" inputMode="numeric" value={hoa} onChange={(e) => setHoa(e.target.value.replace(/[^0-9]/g, ''))} className={inputCls} />
+              <input id="vt-hoa" inputMode="numeric" value={hoa} onChange={(e) => setHoa(e.target.value.replace(/[^0-9.]/g, ''))} className={inputCls} />
             </div>
           </div>
 
+          <p className="text-xs text-ink/60">{c.hoaNote}</p>
           <p className="text-xs text-ink/60">{c.eligibility}</p>
         </div>
 
@@ -313,7 +328,7 @@ export default function VittoriaPaymentEstimator({ lang, rates }) {
               <Row label={c.rows.tax} value={fmt.format(r.tax)} />
               <Row label={c.rows.ins} value={fmt.format(r.insM)} />
               <Row label={c.rows.mip} value={fmt.format(r.mip)} />
-              {r.hoaM > 0 && <Row label={c.rows.hoa} value={fmt.format(r.hoaM)} />}
+              {r.hoaM > 0 && <Row label={c.rows.hoa} value={fmt2.format(r.hoaM)} />}
               <Row label={c.rows.total} value={fmt.format(r.total)} strong />
             </dl>
             <p className="mt-3 text-xs text-ink/55">{c.rows.loan}: {fmt.format(r.loan)}</p>

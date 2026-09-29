@@ -4,7 +4,7 @@ import { vittoria } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 import VittoriaPaymentEstimator from '../../../../components/VittoriaPaymentEstimator';
-import { getMortgageRates } from '../../../../lib/fred';
+import { getFhaRate } from '../../../../lib/fred';
 
 const PHOTO = (name) => `/photos/vittoria/${name}-hd.jpg`;
 const BOOKLET = '/downloads/vittoria-townhomes-booklet.pdf';
@@ -48,7 +48,7 @@ function DownloadButton({ label, tone = 'light' }) {
 
 export default async function VittoriaPage({ params }) {
   const lang = params.lang;
-  const rates = await getMortgageRates();
+  const fha = await getFhaRate();
   const c = vittoria[lang];
 
   const breadcrumb = breadcrumbSchema([
@@ -139,7 +139,7 @@ export default async function VittoriaPage({ params }) {
       {/* Cash to close + monthly payment estimator */}
       <section id="estimate" className="scroll-mt-24 border-t border-ink/10">
         <div className="wrap py-16 md:py-20">
-          <VittoriaPaymentEstimator lang={lang} rates={rates} />
+          <VittoriaPaymentEstimator lang={lang} fha={fha} />
         </div>
       </section>
 
