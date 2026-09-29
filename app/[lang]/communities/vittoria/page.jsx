@@ -4,17 +4,15 @@ import { vittoria } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 
-const PHOTO = (name) => `/photos/vittoria/${name}.jpg`;
+const PHOTO = (name) => `/photos/vittoria/${name}-hd.jpg`;
 const BOOKLET = '/downloads/vittoria-townhomes-booklet.pdf';
 
-// Rendering crops are small (source booklet is 816px wide), so images are
-// shown in contained columns rather than full-bleed.
+// Renderings are extracted from the builder's print booklet at source resolution.
 const SIZES = {
-  exterior: [816, 757],
-  wide: [816, 548],
-  detail: [708, 300],
-  plan1: [392, 372],
-  plan2: [382, 360],
+  exterior: [1164, 1080],
+  wide: [1280, 860],
+  detail: [1024, 434],
+  plan: [1241, 1394],
 };
 
 export async function generateMetadata({ params }) {
@@ -156,16 +154,17 @@ export default function VittoriaPage({ params }) {
       <section className="wrap py-16 md:py-20">
         <h2 className="font-display text-3xl md:text-4xl">{c.plansTitle}</h2>
         <div className="mt-8 grid gap-10 sm:grid-cols-2">
-          {c.plans.map((p, i) => (
+          {c.plans.map((p) => (
             <figure key={p.src}>
               <Image
                 src={PHOTO(p.src)}
                 alt={p.alt}
-                width={i === 0 ? SIZES.plan1[0] : SIZES.plan2[0]}
-                height={i === 0 ? SIZES.plan1[1] : SIZES.plan2[1]}
-                className="mx-auto h-auto w-full max-w-md"
+                width={SIZES.plan[0]}
+                height={SIZES.plan[1]}
+                sizes="(min-width: 640px) 50vw, 100vw"
+                className="mx-auto h-auto w-full max-w-lg"
               />
-              <figcaption className="mt-3 text-center text-sm tracking-wide text-ink/70">{p.label}</figcaption>
+              <figcaption className="sr-only">{p.label}</figcaption>
             </figure>
           ))}
         </div>
