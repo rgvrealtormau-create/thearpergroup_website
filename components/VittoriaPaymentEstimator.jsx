@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 
 // Vittoria-specific cash-to-close + monthly payment estimator:
-// FHA loan, $8,000 seller concession, optional TSAHC down payment assistance.
+// FHA loan, $8,000 seller concession, optional Texas DPA (TDHCA / TSAHC).
 // Logic and bilingual copy are co-located here (site convention).
 //
 // Sources (verify before changing):
@@ -13,7 +13,7 @@ import { useMemo, useState } from 'react';
 //   or a 0% deferred second lien; grant-paired rates typically run ~0.25–0.50% above market.
 //   Income limits by county, 620+ credit, homebuyer education. tsahc.org/homebuyer-programs
 // - Rate: daily Optimal Blue 30-yr FHA index (FRED OBMMIFHA30YF) via getFhaRate(), + DPA premium.
-// - Closing-cost line items mirror ClosingCostEstimator.jsx defaults.
+// - DPA sized as % of the TOTAL loan (incl. UFMIP) — matches the lender worksheet (4% × $228,779 = $9,151.16).
 
 const PRICE = 235000;
 const SELLER_CONCESSION = 8000;
@@ -23,26 +23,29 @@ const FHA_ANNUAL_MIP = 0.0055;
 const FHA_CONCESSION_CAP = 0.06;
 const DPA_MAX = 5;
 const DPA_DEFAULT = 4;
-const DPA_RATE_PREMIUM = 0.375; // midpoint of the typical 0.25–0.50% range
+const DPA_RATE_PREMIUM = 0; // lender worksheet showed no DPA rate add-on; lender quotes the real rate
 const HOA_ANNUAL = 137.5; // Vittoria HOA; a separate micro-HOA fee is still TBD
-const WESLACO_TAX_RATE = 0.023; // same Hidalgo County rate as the mortgage calculator
+const TAX_RATE = 0.020228; // effective rate from the lender worksheet ($392.76/mo on $233,000)
 const TERM_YEARS = 30;
 
-// Buyer closing costs (Closing Cost Estimator defaults)
-const ORIGINATION_PCT = 0.01;
-const APPRAISAL = 550;
-const LENDER_FEES = 600;
-const LOAN_TITLE_POLICY = 100; // TX simultaneous-issue rate (R-5); seller customarily pays owner's policy
-const RECORDING = 75;
+// Buyer closing costs, calibrated to a Directions Equity FHA + DPA pre-application
+// worksheet (Jul 2026, $233,000 purchase, McAllen). Fixed fees used as-is; the
+// origination fee is a % of the base loan. Update here if the lender's fees change.
+const ORIGINATION_PCT = 0.005; // of base loan
+const LENDER_FEES = { processing: 795, underwriting: 1075, admin: 495, credit: 297.69, taxService: 80, flood: 6, docPrep: 150 };
+const APPRAISAL_FEES = { appraisal: 795, finalInspection: 165 };
+const TITLE_FEES = { settlement: 450, courier: 30, eRecording: 10, guaranty: 2, endorsements: 200, ownersTitle: 350, lendersTitle: 1187, recording: 260 };
+const SURVEY = 550;
 const PREPAID_INTEREST_DAYS = 15;
 const ESCROW_MONTHS = 3;
+const sum = (o) => Object.values(o).reduce((x, y) => x + y, 0);
 
 const COPY = {
   en: {
     eyebrow: 'Run the numbers',
     title: 'What it could take to move in',
-    lede: 'An FHA loan at the $235,000 pre-sale price, with the builder’s $8,000 seller concession and optional down payment assistance through TSAHC. Adjust the rate and assistance to see how it changes.',
-    dpaToggle: 'Use TSAHC down payment assistance',
+    lede: 'An FHA loan at the $235,000 pre-sale price, with the builder’s $8,000 seller concession and optional Texas down payment assistance (TDHCA or TSAHC). Adjust the rate and assistance to see how it changes.',
+    dpaToggle: 'Use Texas down payment assistance',
     dpaAmount: 'Assistance amount',
     dpaOfLoan: 'of the loan amount',
     rate: 'Interest rate',
@@ -50,7 +53,7 @@ const COPY = {
     rateNotePmms: 'Starts from Freddie Mac’s weekly 30-year average ({rate}% on {date}); the daily FHA index was unavailable.',
     rateNoteFallback: 'Placeholder rate; ask a lender for today’s rate.',
     rateReset: 'Reset to today’s rate',
-    rateNoteDpa: 'Includes +0.375% — rates paired with a DPA grant typically run 0.25–0.50% higher.',
+    rateNoteDpa: '',
     insurance: 'Homeowners insurance (per year)',
     hoa: 'HOA dues (per year)',
     hoaNote: 'Vittoria’s HOA is $137.50/year. A separate micro-HOA fee is still being set by the builder and isn’t included yet.',
@@ -60,7 +63,7 @@ const COPY = {
       down: 'Down payment (3.5% FHA minimum)',
       closing: 'Estimated closing costs & prepaids',
       concession: 'Seller concession',
-      dpa: 'TSAHC down payment assistance',
+      dpa: 'Down payment assistance',
       cash: 'Cash to close',
       pi: 'Principal & interest',
       tax: 'Property taxes',
@@ -75,16 +78,15 @@ const COPY = {
     showDetail: 'See the closing-cost breakdown',
     hideDetail: 'Hide the breakdown',
     detail: {
-      origination: 'Loan origination (1%)',
-      appraisal: 'Appraisal',
-      lenderFees: 'Other lender fees',
-      title: 'Lender’s title policy (TX promulgated)',
-      recording: 'Recording',
-      insurance: 'First-year insurance',
+      lender: 'Lender fees (origination, processing, underwriting, credit, docs)',
+      appraisal: 'Appraisal + final inspection',
+      title: 'Title insurance, settlement & recording',
+      survey: 'Survey',
+      insurance: 'First-year homeowners insurance',
       interest: 'Prepaid interest (~15 days)',
       escrow: 'Escrow reserve (3 months taxes & insurance)',
     },
-    eligibility: 'TSAHC assistance has county income limits, a 620 minimum credit score and a homebuyer education course. It comes as a grant or a 0% deferred second lien repaid when you sell or refinance — your lender will walk you through which fits.',
+    eligibility: 'Texas down payment assistance through TDHCA or TSAHC comes with income limits, a minimum credit score (typically 620) and a homebuyer education course, and is usually a second lien alongside your FHA loan. Your lender will confirm the program, its terms and your exact rate — DPA loans can price differently from the daily index.',
     earnest: 'You’ll also put down earnest money when your offer is accepted; it’s credited back to you at closing.',
     cta: 'Talk to us about a lender',
     disclaimer: 'Estimate only — not a loan offer, approval or Loan Estimate. Assumes a 30-year fixed FHA loan with 3.5% down; actual rate, fees, taxes, insurance, mortgage insurance and assistance amounts are set by your lender and the program. Not financial advice.',
@@ -92,8 +94,8 @@ const COPY = {
   es: {
     eyebrow: 'Haz cuentas',
     title: 'Lo que podrías necesitar para mudarte',
-    lede: 'Un préstamo FHA al precio de preventa de $235,000, con los $8,000 de concesión del constructor y ayuda opcional para el enganche de TSAHC. Mueve la tasa y la ayuda para ver cómo cambia.',
-    dpaToggle: 'Usar la ayuda para el enganche de TSAHC',
+    lede: 'Un préstamo FHA al precio de preventa de $235,000, con los $8,000 de concesión del constructor y ayuda opcional de Texas para el enganche (TDHCA o TSAHC). Mueve la tasa y la ayuda para ver cómo cambia.',
+    dpaToggle: 'Usar la ayuda de Texas para el enganche',
     dpaAmount: 'Monto de la ayuda',
     dpaOfLoan: 'del monto del préstamo',
     rate: 'Tasa de interés',
@@ -101,7 +103,7 @@ const COPY = {
     rateNotePmms: 'Parte del promedio semanal de 30 años de Freddie Mac ({rate}% al {date}); el índice diario FHA no estuvo disponible.',
     rateNoteFallback: 'Tasa de referencia; pregúntale a un prestamista la tasa de hoy.',
     rateReset: 'Volver a la tasa de hoy',
-    rateNoteDpa: 'Incluye +0.375% — las tasas con subsidio de ayuda suelen ser 0.25–0.50% más altas.',
+    rateNoteDpa: '',
     insurance: 'Seguro de casa (por año)',
     hoa: 'Cuota de HOA (por año)',
     hoaNote: 'La cuota de HOA de Vittoria es de $137.50 al año. Hay una cuota adicional de micro-HOA que el constructor todavía está definiendo y aún no está incluida.',
@@ -111,7 +113,7 @@ const COPY = {
       down: 'Enganche (3.5% mínimo FHA)',
       closing: 'Gastos de cierre y prepagos estimados',
       concession: 'Concesión del vendedor',
-      dpa: 'Ayuda para el enganche de TSAHC',
+      dpa: 'Ayuda para el enganche',
       cash: 'Dinero para cerrar',
       pi: 'Capital e interés',
       tax: 'Impuestos a la propiedad',
@@ -126,16 +128,15 @@ const COPY = {
     showDetail: 'Ver el desglose de gastos de cierre',
     hideDetail: 'Ocultar el desglose',
     detail: {
-      origination: 'Originación del préstamo (1%)',
-      appraisal: 'Avalúo',
-      lenderFees: 'Otros cargos del prestamista',
-      title: 'Póliza de título del prestamista (tarifa de Texas)',
-      recording: 'Registro',
-      insurance: 'Seguro del primer año',
+      lender: 'Cargos del prestamista (originación, procesamiento, suscripción, crédito, documentos)',
+      appraisal: 'Avalúo + inspección final',
+      title: 'Seguro de título, cierre y registro',
+      survey: 'Medición del terreno (survey)',
+      insurance: 'Seguro de casa del primer año',
       interest: 'Interés prepagado (~15 días)',
       escrow: 'Reserva de escrow (3 meses de impuestos y seguro)',
     },
-    eligibility: 'La ayuda de TSAHC tiene límites de ingreso por condado, un puntaje de crédito mínimo de 620 y un curso para compradores. Puede ser un subsidio o un segundo préstamo diferido al 0% que se paga al vender o refinanciar — tu prestamista te explica cuál te conviene.',
+    eligibility: 'La ayuda para el enganche de Texas a través de TDHCA o TSAHC tiene límites de ingreso, un puntaje de crédito mínimo (normalmente 620) y un curso para compradores, y suele ser un segundo préstamo junto con tu préstamo FHA. Tu prestamista te confirma el programa, sus condiciones y tu tasa exacta — los préstamos con ayuda pueden tener una tasa distinta al índice diario.',
     earnest: 'También darás un depósito de buena fe (earnest money) cuando acepten tu oferta; se te acredita al cierre.',
     cta: 'Pregúntanos por un prestamista',
     disclaimer: 'Solo es un estimado — no es una oferta de préstamo, aprobación ni Loan Estimate. Supone un préstamo FHA a 30 años con tasa fija y 3.5% de enganche; la tasa, cargos, impuestos, seguros, seguro hipotecario y montos de ayuda los define tu prestamista y el programa. No es asesoría financiera.',
@@ -172,7 +173,7 @@ export default function VittoriaPaymentEstimator({ lang, fha }) {
   // market rate (+ DPA premium) until the visitor edits it.
   const [rateStr, setRateStr] = useState(rateFor(true));
   const [rateTouched, setRateTouched] = useState(false);
-  const [insurance, setInsurance] = useState('1800');
+  const [insurance, setInsurance] = useState('1200');
   const [hoa, setHoa] = useState(String(HOA_ANNUAL));
   const [showDetail, setShowDetail] = useState(false);
 
@@ -188,14 +189,13 @@ export default function VittoriaPaymentEstimator({ lang, fha }) {
     const ufmip = Math.round(baseLoan * FHA_UFMIP);
     const loan = baseLoan + ufmip;
 
-    const annualTax = PRICE * WESLACO_TAX_RATE;
+    const annualTax = PRICE * TAX_RATE;
     const ins = num(insurance);
     const items = {
-      origination: Math.round(loan * ORIGINATION_PCT),
-      appraisal: APPRAISAL,
-      lenderFees: LENDER_FEES,
-      title: LOAN_TITLE_POLICY,
-      recording: RECORDING,
+      lender: Math.round(baseLoan * ORIGINATION_PCT + sum(LENDER_FEES)),
+      appraisal: sum(APPRAISAL_FEES),
+      title: sum(TITLE_FEES),
+      survey: SURVEY,
       insurance: Math.round(ins),
       interest: Math.round(loan * (rate / 100 / 365) * PREPAID_INTEREST_DAYS),
       escrow: Math.round(((annualTax + ins) / 12) * ESCROW_MONTHS),
@@ -228,7 +228,7 @@ export default function VittoriaPaymentEstimator({ lang, fha }) {
   const sourceNote = fha?.source === 'fha' ? c.rateNoteFha : fha?.source === 'pmms' ? c.rateNotePmms : c.rateNoteFallback;
   const rateNote = rateTouched
     ? null
-    : [sourceNote.replace('{rate}', baseRate).replace('{date}', formatDate(fha?.asOfDate, lang)), useDpa ? c.rateNoteDpa : null]
+    : [sourceNote.replace('{rate}', baseRate).replace('{date}', formatDate(fha?.asOfDate, lang)), null]
         .filter(Boolean)
         .join(' ');
 
