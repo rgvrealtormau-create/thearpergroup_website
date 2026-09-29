@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { appendLeadRow } from '../../../lib/googleSheets';
 import { sendBrivityEmail } from '../../../lib/brivity';
+import { VITTORIA_MODEL_HOME_AGENTS } from '../../../lib/site';
 
 export const runtime = 'nodejs';
 
@@ -39,6 +40,8 @@ const FORM_META = {
   title_policy_calculator: { label: 'Website — Title Policy Calculator', note: 'Title policy calculator inquiry' },
   seller_net_proceeds_calculator: { label: 'Website — Seller Net Proceeds Calculator', note: 'Seller net proceeds calculator inquiry' },
   cedar_ridge_reserve: { label: 'Website — Cedar Ridge Reserve', note: 'Cedar Ridge Reserve inquiry' },
+  vittoria: { label: 'Website — Vittoria', note: 'Vittoria townhomes inquiry' },
+  vittoria_model_home: { label: 'Website — Vittoria model home', note: 'Vittoria model home check-in' },
 };
 
 function splitName(name) {
@@ -56,7 +59,9 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { formType, lang, name, email, phone, address, detail, lotId } = body || {};
+  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent } = body || {};
+  // Only credit agents on the model-home roster, so the referral column stays clean.
+  const referral = VITTORIA_MODEL_HOME_AGENTS.includes(referralAgent) ? referralAgent : null;
 
   if (!name || (!email && !phone)) {
     return NextResponse.json({ ok: false, error: 'Missing name or contact info' }, { status: 400 });
@@ -73,14 +78,16 @@ export async function POST(request) {
   const baseBrivityNote = formType === 'home_valuation' && address
     ? `${meta.note} — ${address}`
     : meta.note;
-  const brivityNote = lotAttribution ? `${baseBrivityNote} — ${lotAttribution}` : baseBrivityNote;
+  const withLot = lotAttribution ? `${baseBrivityNote} — ${lotAttribution}` : baseBrivityNote;
+  const withReferral = referral ? `${withLot} — referred by ${referral} (Alliance)` : withLot;
+  const brivityNote = buyerAgent ? `${withReferral} — buyer's agent: ${buyerAgent}` : withReferral;
   const brivityNoteWithLang = lang ? `${brivityNote} (${String(lang).toUpperCase()})` : brivityNote;
 
   const sheetNotes = detail
     ? `${brivityNote} — submitted ${submittedAt} CT\nBuyer message: ${detail}`
     : `${brivityNote} — submitted ${submittedAt} CT`;
 
-  const howIKnowThem = meta.label;
+  const howIKnowThem = referral ? `${meta.label} — referred by ${referral}` : meta.label;
 
   // Column order matches the live "Sphere Nurture Database" sheet header row:
   // Name, Contact Type, How I Know Them, Phone, Email, Preferred Channel, Language,

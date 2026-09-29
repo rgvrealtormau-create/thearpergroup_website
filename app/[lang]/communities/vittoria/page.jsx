@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { vittoria } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
+import VittoriaLeadForm from '../../../../components/VittoriaLeadForm';
 import VittoriaPaymentEstimator from '../../../../components/VittoriaPaymentEstimator';
 import { getFhaRate } from '../../../../lib/fred';
 
@@ -197,10 +198,11 @@ export default async function VittoriaPage({ params }) {
 
       {/* Contact */}
       <section id="contact" className="scroll-mt-24 bg-cream">
-        <div className="wrap py-16 md:py-20">
+        <div className="wrap grid gap-12 py-16 md:grid-cols-2 md:py-20">
+          <div>
           <h2 className="font-display text-3xl md:text-4xl">{c.contactTitle}</h2>
           <p className="mt-4 max-w-2xl text-ink/80">{c.contactBody}</p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row md:flex-col lg:flex-row">
             <a href={`tel:${BUSINESS.phone}`} className="bg-petrol px-6 py-3 text-center text-sm text-cream hover:bg-ink">
               {c.callMau} · {BUSINESS.phoneDisplay}
             </a>
@@ -215,6 +217,10 @@ export default async function VittoriaPage({ params }) {
             <Link href={`/${lang}/rgv/weslaco`} className="text-petrol link-underline">{c.cityLink} →</Link>
           </p>
           <p className="mt-6 max-w-3xl text-xs text-ink/50">{c.disclaimer}</p>
+          </div>
+          <div>
+            <VittoriaLeadForm lang={lang} mode="public" />
+          </div>
         </div>
       </section>
     </>
