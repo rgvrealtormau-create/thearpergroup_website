@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { appendLeadRow } from '../../../lib/googleSheets';
 import { sendBrivityEmail } from '../../../lib/brivity';
 import { VITTORIA_MODEL_HOME_AGENTS } from '../../../lib/site';
+import { sendVittoriaWelcomeEmail } from '../../../lib/vittoriaEmail';
 
 export const runtime = 'nodejs';
 
@@ -111,10 +112,15 @@ export async function POST(request) {
     '',
   ];
 
-  const [sheetResult, emailResult] = await Promise.allSettled([
+  // Vittoria buyers who leave an email get an automatic welcome email with the page link.
+  const wantsWelcome = (formType === 'vittoria' || formType === 'vittoria_model_home') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
+
+  const [sheetResult, emailResult, welcomeResult] = await Promise.allSettled([
     appendLeadRow(sheetRow),
     sendBrivityEmail({ firstName, lastName, email, phone, note: brivityNoteWithLang }),
+    wantsWelcome ? sendVittoriaWelcomeEmail({ to: email, name, lang, referralAgent: referral }) : Promise.resolve(null),
   ]);
+  if (welcomeResult.status === 'rejected') console.error('[api/lead] Vittoria welcome email failed:', welcomeResult.reason);
 
   const sheetOk = sheetResult.status === 'fulfilled';
   const emailOk = emailResult.status === 'fulfilled';

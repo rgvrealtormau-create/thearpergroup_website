@@ -27,6 +27,7 @@ const COPY = {
     yourName: 'Your full name',
     phone: 'Mobile phone',
     email: 'Email (optional)',
+    emailCheckin: 'Buyer’s email — we’ll send them the details',
     language: 'Preferred language',
     langEn: 'English',
     langEs: 'Spanish',
@@ -68,6 +69,7 @@ const COPY = {
     yourName: 'Tu nombre completo',
     phone: 'Celular',
     email: 'Correo (opcional)',
+    emailCheckin: 'Correo del comprador — le mandamos la información',
     language: 'Idioma preferido',
     langEn: 'Inglés',
     langEs: 'Español',
@@ -237,7 +239,7 @@ export default function VittoriaLeadForm({ lang, mode = 'public' }) {
           <input id="vl-phone" name="phone" type="tel" required inputMode="tel" autoComplete={checkin ? 'off' : 'tel'} className={inputCls} />
         </div>
         <div>
-          <label className="text-sm text-ink/70" htmlFor="vl-email">{c.email}</label>
+          <label className="text-sm text-ink/70" htmlFor="vl-email">{checkin ? c.emailCheckin : c.email}</label>
           <input id="vl-email" name="email" type="email" autoComplete={checkin ? 'off' : 'email'} className={inputCls} />
         </div>
       </div>
