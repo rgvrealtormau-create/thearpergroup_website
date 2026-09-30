@@ -4,6 +4,7 @@ import { vittoria } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema, parseVittoriaLotParams } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 import VittoriaLeadForm from '../../../../components/VittoriaLeadForm';
+import VittoriaMapEmbed from '../../../../components/VittoriaMapEmbed';
 import VittoriaPaymentEstimator from '../../../../components/VittoriaPaymentEstimator';
 import { getFhaRate } from '../../../../lib/fred';
 
@@ -177,6 +178,13 @@ export default async function VittoriaPage({ params, searchParams }) {
           ))}
         </div>
         <p className="mt-6 text-center text-xs text-ink/55">{c.plansNote}</p>
+      </section>
+
+      {/* Live BuildHere lot map (Arper-represented homes highlighted) */}
+      <section id="availability" className="scroll-mt-24 border-t border-ink/10">
+        <div className="wrap py-16 md:py-20">
+          <VittoriaMapEmbed lang={lang} />
+        </div>
       </section>
 
       {/* Cash to close + monthly payment estimator */}
