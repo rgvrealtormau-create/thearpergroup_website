@@ -180,7 +180,7 @@ export default async function VittoriaPage({ params, searchParams }) {
         <p className="mt-6 text-center text-xs text-ink/55">{c.plansNote}</p>
       </section>
 
-      {/* Live BuildHere lot map (Arper-represented homes highlighted) */}
+      {/* Live BuildHere lot map (all lots; Arper listings featured) */}
       <section id="availability" className="scroll-mt-24 border-t border-ink/10">
         <div className="wrap py-16 md:py-20">
           <VittoriaMapEmbed lang={lang} />

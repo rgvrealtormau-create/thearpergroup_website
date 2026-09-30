@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 // Vittoria's live BuildHere lot map (explorer view). Vittoria is a multi-builder
-// subdivision: BuildHere is set to show details only for the lots The Arper Group
-// represents; every other lot renders gray as "Shown for reference" (no price or CTA).
+// subdivision: every lot is shown (we can represent buyers on any of them), and the
+// lots The Arper Group lists are highlighted as Featured in BuildHere.
 // The iframe reports its content height via postMessage (BUILDHERE_HEIGHT_CHANGED)
 // once www.thearpergroup.com is an approved origin on the Vittoria community.
 // Copy is co-located here (site convention).
@@ -16,16 +16,16 @@ const COPY = {
   en: {
     eyebrow: 'Find your home',
     title: 'See where the homes sit in Vittoria',
-    lede: 'Tap a highlighted lot for the home’s current status and price, then ask about it right from the map.',
-    legend: 'Highlighted homes are represented by The Arper Group. Other homes in Vittoria are shown in gray for reference only.',
+    lede: 'Tap any lot for its current status and price, then ask us about it right from the map.',
+    legend: 'Featured homes are listed by The Arper Group. Interested in another home in Vittoria? We can help you buy any home on the map.',
     frameTitle: 'Vittoria lot availability map',
     openFull: 'Open the map full screen',
   },
   es: {
     eyebrow: 'Encuentra tu casa',
     title: 'Mira dónde están las casas en Vittoria',
-    lede: 'Toca un lote resaltado para ver el estatus y precio actual de la casa, y pregunta por ella desde el mismo mapa.',
-    legend: 'Las casas resaltadas las representa The Arper Group. Las demás casas de Vittoria aparecen en gris solo como referencia.',
+    lede: 'Toca cualquier lote para ver su estatus y precio actual, y pregúntanos por él desde el mismo mapa.',
+    legend: 'Las casas destacadas son listados de The Arper Group. ¿Te interesa otra casa en Vittoria? Te ayudamos a comprar cualquier casa del mapa.',
     frameTitle: 'Mapa de disponibilidad de lotes en Vittoria',
     openFull: 'Abrir el mapa en pantalla completa',
   },
