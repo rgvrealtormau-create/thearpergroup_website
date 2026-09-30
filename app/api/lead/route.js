@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import { appendLeadRow } from '../../../lib/googleSheets';
 import { sendBrivityEmail } from '../../../lib/brivity';
 import { VITTORIA_MODEL_HOME_AGENTS } from '../../../lib/site';
-import { sendVittoriaWelcomeEmail } from '../../../lib/vittoriaEmail';
+import { sendVittoriaWelcomeEmail, sendVittoriaLeadAlert } from '../../../lib/vittoriaEmail';
 
 export const runtime = 'nodejs';
 
@@ -113,14 +113,20 @@ export async function POST(request) {
   ];
 
   // Vittoria buyers who leave an email get an automatic welcome email with the page link.
-  const wantsWelcome = (formType === 'vittoria' || formType === 'vittoria_model_home') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
+  const isVittoria = formType === 'vittoria' || formType === 'vittoria_model_home';
+  const wantsWelcome = isVittoria && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
 
-  const [sheetResult, emailResult, welcomeResult] = await Promise.allSettled([
+  const [sheetResult, emailResult, welcomeResult, alertResult] = await Promise.allSettled([
     appendLeadRow(sheetRow),
     sendBrivityEmail({ firstName, lastName, email, phone, note: brivityNoteWithLang }),
     wantsWelcome ? sendVittoriaWelcomeEmail({ to: email, name, lang, referralAgent: referral }) : Promise.resolve(null),
+    isVittoria
+      ? sendVittoriaLeadAlert({ name, phone, email, lang, source: meta.label, referralAgent: referral, buyerAgent, detail, submittedAt })
+      : Promise.resolve(null),
   ]);
   if (welcomeResult.status === 'rejected') console.error('[api/lead] Vittoria welcome email failed:', welcomeResult.reason);
+  if (alertResult.status === 'rejected') console.error('[api/lead] Vittoria lead alert failed:', alertResult.reason);
+  else if (isVittoria) console.log('[api/lead] Vittoria lead alert sent; brivity:', emailResult.status, 'sheet:', sheetResult.status);
 
   const sheetOk = sheetResult.status === 'fulfilled';
   const emailOk = emailResult.status === 'fulfilled';
