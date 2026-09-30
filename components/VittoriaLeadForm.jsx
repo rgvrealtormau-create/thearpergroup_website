@@ -9,7 +9,10 @@ import { WEB3FORMS_ACCESS_KEY, BUSINESS, VITTORIA_MODEL_HOME_AGENTS } from '../l
 //   The confirmation screen is the agent's receipt and can text the buyer the page link
 //   from the agent's own Messages app (sms: link — no texting service involved).
 // - "public": the inquiry form on the Vittoria page itself, with an optional
-//   "which agent helped you at the model home?" question.
+//   "which agent helped you at the model home?" question. When BuildHere's "Ask about
+//   this home" CTA links here with lot/lotId/community/subject query params, the page
+//   parses and validates them (lib/site.js#parseVittoriaLotParams) and passes the result
+//   in as `lotInfo`, which this component only ever honors in "public" mode.
 // Leads go to /api/lead (Google Sheet + Brivity) and Web3Forms (email alert).
 
 const PAGE_PATH = (lang) => `/${lang}/communities/vittoria`;
@@ -20,6 +23,8 @@ const COPY = {
     checkinLede: 'Agents: fill this in with your buyer so they get the details and you get credit for the visit. Buyers are welcome to fill it in themselves too.',
     publicTitle: 'Get pricing, availability and a tour',
     publicLede: 'Leave your info and we’ll reach out — or call or text us directly below.',
+    lotSummaryLabel: 'Inquiring about',
+    lotLabel: 'Lot',
     agentLabel: 'Alliance agent who helped at the model home',
     agentPlaceholderCheckin: 'Select your name',
     agentPlaceholderPublic: 'No one / not sure',
@@ -62,6 +67,8 @@ const COPY = {
     checkinLede: 'Agentes: llénenlo con su comprador para que reciba la información y ustedes reciban el crédito por la visita. El comprador también lo puede llenar.',
     publicTitle: 'Precios, disponibilidad y visitas',
     publicLede: 'Déjanos tus datos y te contactamos — o llámanos o mándanos mensaje abajo.',
+    lotSummaryLabel: 'Consulta sobre',
+    lotLabel: 'Lote',
     agentLabel: 'Agente de Alliance que te atendió en la casa modelo',
     agentPlaceholderCheckin: 'Selecciona tu nombre',
     agentPlaceholderPublic: 'Nadie / no estoy seguro',
@@ -101,9 +108,11 @@ const COPY = {
   },
 };
 
-export default function VittoriaLeadForm({ lang, mode = 'public' }) {
+export default function VittoriaLeadForm({ lang, mode = 'public', lotInfo = null }) {
   const c = COPY[lang] ?? COPY.en;
   const checkin = mode === 'checkin';
+  // BuildHere lot attribution only ever applies to the public inquiry form, never check-in.
+  const lot = !checkin ? lotInfo : null;
 
   const [agent, setAgent] = useState('');
   const [hasAgent, setHasAgent] = useState('no');
@@ -131,6 +140,10 @@ export default function VittoriaLeadForm({ lang, mode = 'public' }) {
 
     const detail = [
       checkin ? 'Source: Vittoria model home check-in' : 'Source: Vittoria page',
+      lot ? `Community: ${lot.community}` : null,
+      lot?.lot ? `Lot: ${lot.lot}` : null,
+      lot?.lotId ? `Lot ID: ${lot.lotId}` : null,
+      lot ? `Subject: ${lot.subject}` : null,
       `Referred by (Alliance model-home host): ${agent || 'None selected'}`,
       `Buyer already has an agent: ${hasAgent === 'yes' ? `YES — ${buyerAgent}` : 'No'}`,
       notes ? `Notes: ${notes}` : null,
@@ -146,6 +159,7 @@ export default function VittoriaLeadForm({ lang, mode = 'public' }) {
           name, phone, email, detail,
           referralAgent: agent || null,
           buyerAgent: buyerAgent || null,
+          ...(lot ? { lot: lot.lot || null, lotId: lot.lotId || null, community: lot.community, subject: lot.subject } : {}),
         }),
       }).then((r) => r.ok),
       fetch('https://api.web3forms.com/submit', {
@@ -153,7 +167,7 @@ export default function VittoriaLeadForm({ lang, mode = 'public' }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           access_key: WEB3FORMS_ACCESS_KEY,
-          subject: `Vittoria lead${agent ? ` — referred by ${agent}` : ''}${hasAgent === 'yes' ? ' — HAS AGENT' : ''}`,
+          subject: `Vittoria lead${lot?.lot ? ` — Lot ${lot.lot}` : ''}${agent ? ` — referred by ${agent}` : ''}${hasAgent === 'yes' ? ' — HAS AGENT' : ''}`,
           from_name: 'The Arper Group website',
           page: checkin ? 'Vittoria model home check-in' : 'Vittoria page',
           name, phone, email,
@@ -226,6 +240,12 @@ export default function VittoriaLeadForm({ lang, mode = 'public' }) {
 
   return (
     <form key={formKey} ref={topRef} onSubmit={onSubmit} className="scroll-mt-24 space-y-5">
+      {lot && (
+        <p className="border-l-2 border-gold pl-3 text-sm font-medium text-petrol">
+          {c.lotSummaryLabel}: {lot.community}{lot.lot ? ` · ${c.lotLabel} ${lot.lot}` : ''}
+        </p>
+      )}
+
       {checkin && agentSelect}
 
       <div>

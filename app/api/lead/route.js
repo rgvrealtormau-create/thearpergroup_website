@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server';
 import { appendLeadRow } from '../../../lib/googleSheets';
 import { sendBrivityEmail } from '../../../lib/brivity';
-import { VITTORIA_MODEL_HOME_AGENTS } from '../../../lib/site';
+import { VITTORIA_MODEL_HOME_AGENTS, parseVittoriaLotParams } from '../../../lib/site';
 import { sendVittoriaWelcomeEmail, sendVittoriaLeadAlert } from '../../../lib/vittoriaEmail';
 
 export const runtime = 'nodejs';
@@ -60,9 +60,12 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent } = body || {};
+  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent, lot, community, subject } = body || {};
   // Only credit agents on the model-home roster, so the referral column stays clean.
   const referral = VITTORIA_MODEL_HOME_AGENTS.includes(referralAgent) ? referralAgent : null;
+  // Re-validate the BuildHere lot fields server-side too (this endpoint is public and could
+  // be called directly), and only for the public Vittoria form — never the check-in flow.
+  const vittoriaLot = formType === 'vittoria' ? parseVittoriaLotParams({ lot, lotId, community, subject }) : null;
 
   if (!name || (!email && !phone)) {
     return NextResponse.json({ ok: false, error: 'Missing name or contact info' }, { status: 400 });
@@ -83,6 +86,14 @@ export async function POST(request) {
   const withReferral = referral ? `${withLot} — referred by ${referral} (Alliance)` : withLot;
   const brivityNote = buyerAgent ? `${withReferral} — buyer's agent: ${buyerAgent}` : withReferral;
   const brivityNoteWithLang = lang ? `${brivityNote} (${String(lang).toUpperCase()})` : brivityNote;
+
+  // Brivity's note excludes `detail` (unlike the Sheet, which appends it below), so
+  // Vittoria's BuildHere lot attribution is added here from the validated structured
+  // fields to make sure it actually reaches Brivity too.
+  const vittoriaAttribution = vittoriaLot
+    ? `${vittoriaLot.community}${vittoriaLot.lot ? ` · Lot ${vittoriaLot.lot}` : ''}${vittoriaLot.lotId ? ` · UUID ${vittoriaLot.lotId}` : ''} · Subject: ${vittoriaLot.subject}`
+    : null;
+  const brivityEmailNote = vittoriaAttribution ? `${brivityNoteWithLang} — ${vittoriaAttribution}` : brivityNoteWithLang;
 
   const sheetNotes = detail
     ? `${brivityNote} — submitted ${submittedAt} CT\nBuyer message: ${detail}`
@@ -118,7 +129,7 @@ export async function POST(request) {
 
   const [sheetResult, emailResult, welcomeResult, alertResult] = await Promise.allSettled([
     appendLeadRow(sheetRow),
-    sendBrivityEmail({ firstName, lastName, email, phone, note: brivityNoteWithLang }),
+    sendBrivityEmail({ firstName, lastName, email, phone, note: brivityEmailNote }),
     wantsWelcome ? sendVittoriaWelcomeEmail({ to: email, name, lang, referralAgent: referral }) : Promise.resolve(null),
     isVittoria
       ? sendVittoriaLeadAlert({ name, phone, email, lang, source: meta.label, referralAgent: referral, buyerAgent, detail, submittedAt })

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { vittoria } from '../../../../lib/content';
-import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
+import { BUSINESS, pageAlternates, breadcrumbSchema, parseVittoriaLotParams } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 import VittoriaLeadForm from '../../../../components/VittoriaLeadForm';
 import VittoriaPaymentEstimator from '../../../../components/VittoriaPaymentEstimator';
@@ -47,10 +47,11 @@ function DownloadButton({ label, tone = 'light' }) {
   );
 }
 
-export default async function VittoriaPage({ params }) {
+export default async function VittoriaPage({ params, searchParams }) {
   const lang = params.lang;
   const fha = await getFhaRate();
   const c = vittoria[lang];
+  const lotInfo = parseVittoriaLotParams(searchParams);
 
   const breadcrumb = breadcrumbSchema([
     { name: c.breadcrumb.home, url: `${BUSINESS.url}/${lang}` },
@@ -219,7 +220,7 @@ export default async function VittoriaPage({ params }) {
           <p className="mt-6 max-w-3xl text-xs text-ink/50">{c.disclaimer}</p>
           </div>
           <div>
-            <VittoriaLeadForm lang={lang} mode="public" />
+            <VittoriaLeadForm lang={lang} mode="public" lotInfo={lotInfo} />
           </div>
         </div>
       </section>
