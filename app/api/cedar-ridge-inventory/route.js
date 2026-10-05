@@ -1,6 +1,6 @@
+import { BUILDHERE_EMBED_URL, BUILDHERE_INVENTORY_URL, publicCedarRidgeInventory } from '../../../lib/cedar-ridge-inventory';
 import { NextResponse } from 'next/server';
 
-const BUILDHERE_INVENTORY_URL = 'https://subdivision-plat-app.vercel.app/api/public/communities/cedar-ridge-reserve-892049/inventory';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,7 @@ export async function GET() {
       );
     }
 
-    const inventory = await response.json();
+    const inventory = publicCedarRidgeInventory(await response.json());
     return NextResponse.json(inventory, {
       headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
     });

@@ -1,3 +1,4 @@
+import { BUILDHERE_EMBED_URL, BUILDHERE_INVENTORY_URL, publicCedarRidgeInventory } from '../../../../lib/cedar-ridge-inventory';
 import { Suspense } from 'react';
 import { cedarRidge } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
@@ -7,8 +8,6 @@ import CedarRidgeFormWithInventory from '../../../../components/CedarRidgeFormWi
 import CedarRidgeMapEmbed from '../../../../components/CedarRidgeMapEmbed';
 
 // BuildHere is the single source of truth for public Cedar Ridge inventory.
-const BUILDHERE_EMBED_URL = 'https://subdivision-plat-app.vercel.app/c/cedar-ridge-reserve-892049';
-const BUILDHERE_INVENTORY_URL = 'https://subdivision-plat-app.vercel.app/api/public/communities/cedar-ridge-reserve-892049/inventory';
 
 export const revalidate = 30;
 
@@ -16,7 +15,7 @@ async function getInventory() {
   try {
     const response = await fetch(BUILDHERE_INVENTORY_URL, { next: { revalidate: 30 } });
     if (!response.ok) return null;
-    return response.json();
+    return publicCedarRidgeInventory(await response.json());
   } catch {
     return null;
   }
