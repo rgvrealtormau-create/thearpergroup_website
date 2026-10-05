@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
-import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import ExportButton from '../lib/export/ExportButton';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
 const AREA_TAX_RATES = {
@@ -102,6 +103,56 @@ export default function MortgageCalculator({ lang, copy, rates }) {
     ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang))
     : null;
   const taxNoteText = !taxTouched ? copy.taxNote.replace('{city}', cityName) : null;
+
+  // Normalized payload for the shared PDF template (lib/export) — built on click only.
+  function buildExportPayload() {
+    const X = copy.export;
+    return {
+      calculator: 'mortgage',
+      lang,
+      url: `${BUSINESS.url}/${lang}/resources/mortgage-calculator`,
+      title: copy.title,
+      subtitle: copy.lede,
+      label: X.label,
+      headline: { label: R.monthlyPayment, value: `${usd2.format(totalMonthly)}${R.perMonth}` },
+      inputs: [
+        { label: L.homePrice, value: usd.format(num(homePrice)) },
+        { label: L.downPayment, value: `${usd.format(downDollar)} · ${round1(downPercent)}%` },
+        { label: L.interestRate, value: `${num(rate)}%` },
+        { label: L.loanTerm, value: `${term} ${L.yr}` },
+        { label: L.city, value: cityName },
+        { label: L.propertyTax, value: usd.format(num(tax)) },
+        { label: L.homeInsurance, value: usd.format(num(insurance)) },
+        { label: L.hoa, value: usd.format(num(hoa)) },
+        { label: L.pmi, value: usd.format(num(pmi)) },
+      ],
+      results: [
+        { label: R.principalInterest, value: usd2.format(principalInterest) },
+        { label: R.taxes, value: usd2.format(monthlyTax) },
+        { label: R.insurance, value: usd2.format(monthlyInsurance) },
+        ...(monthlyPmi > 0 ? [{ label: R.pmi, value: usd2.format(monthlyPmi) }] : []),
+        ...(monthlyHoa > 0 ? [{ label: R.hoa, value: usd2.format(monthlyHoa) }] : []),
+        { label: R.monthlyPayment, value: usd2.format(totalMonthly), emphasis: true },
+        { label: R.loanAmount, value: usd.format(loanAmount) },
+        { label: R.totalInterest, value: usd.format(totalInterest) },
+      ],
+      notes: taxNoteText ? [taxNoteText] : [],
+      dataStamps: [
+        {
+          label: X.rate,
+          value: rateTouched ? X.rateEntered
+            : rates.live ? X.rateLive.replace('{date}', formatDate(rates.asOfDate, lang))
+            : X.rateDefault,
+        },
+        {
+          label: X.propertyTax,
+          value: taxTouched ? X.taxEntered
+            : X.taxDefault.replace('{city}', cityName).replace('{pct}', round1(taxRateFor(city) * 100)),
+        },
+      ],
+      disclaimers: [copy.disclaimer],
+    };
+  }
 
   const [showLead, setShowLead] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
@@ -379,6 +430,8 @@ export default function MortgageCalculator({ lang, copy, rates }) {
           </div>
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
+
+          <ExportButton lang={lang} getPayload={buildExportPayload} className="mt-6" />
 
           <div className="mt-6 border-t border-ink/10 pt-6">
             {!showLead && !leadSent && (

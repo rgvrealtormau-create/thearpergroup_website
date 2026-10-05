@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { cities, citySlugs } from '../lib/content';
-import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import ExportButton from '../lib/export/ExportButton';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
 // Kept in sync with the same constants in MortgageCalculator.jsx / ClosingCostEstimator.jsx / SellerNetProceeds.jsx.
@@ -246,6 +247,115 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
     rate, term, loanAmount, price, downDollar, totalCashInvested, annualDebtService, monthlyDebtService,
   ]);
   const finalProformaRow = proformaRows[proformaRows.length - 1];
+
+  // Normalized payload for the shared PDF template (lib/export) — built on click only.
+  // Subtraction rows use "–" (en dash): the placeholder PDF fonts have no U+2212 minus.
+  function buildExportPayload() {
+    const X = copy.export;
+    const P = copy.proforma;
+    return {
+      calculator: 'investment-property',
+      lang,
+      url: `${BUSINESS.url}/${lang}/resources/investment-property-calculator`,
+      title: copy.title,
+      subtitle: copy.lede,
+      label: X.label,
+      headline: {
+        label: R.title,
+        value: usd2.format(cashFlowMonthly),
+        sub: R.annualEquivalent.replace('{amount}', usd.format(cashFlowAnnual)),
+        warning: cashFlowAnnual < 0 ? R.negativeCashFlowNote : null,
+      },
+      metrics: [
+        { label: R.capRate, value: pct1.format(capRate) },
+        { label: R.cashOnCash, value: pct1.format(cashOnCash) },
+        { label: R.dscr, value: dscr === null ? R.dscrNa : dscr.toFixed(2) },
+        { label: R.grm, value: `${grm.toFixed(1)}×` },
+        { label: R.totalCashInvested, value: usd.format(totalCashInvested) },
+      ],
+      inputs: [
+        { label: L.purchasePrice, value: usd.format(num(price)) },
+        { label: L.downPayment, value: `${usd.format(downDollar)} · ${round1(downPercent)}%` },
+        { label: L.interestRate, value: `${num(rate)}%` },
+        { label: L.loanTerm, value: `${term} ${L.yr}` },
+        { label: L.city, value: cityName },
+        { label: L.closingCosts, value: usd.format(num(closingCosts)) },
+        { label: L.monthlyRent, value: usd.format(num(monthlyRent)) },
+        { label: L.vacancyRate, value: `${round1(num(vacancyPercent))}%` },
+        { label: L.managementFee, value: `${round1(num(managementPercent))}%` },
+        { label: L.maintenanceReserve, value: `${round1(num(maintenancePercent))}%` },
+        { label: L.hoaFee, value: usd.format(num(hoaMonthly)) },
+        { label: L.propertyTax, value: usd.format(num(tax)) },
+        { label: L.insurance, value: usd.format(num(insurance)) },
+        { label: L.rentGrowth, value: `${round1(num(rentGrowthPercent))}%` },
+        { label: L.appreciation, value: `${round1(num(appreciationPercent))}%` },
+        { label: L.expenseInflation, value: `${round1(num(expenseInflationPercent))}%` },
+      ],
+      results: [
+        { label: R.grossScheduledIncome, value: usd.format(gsi) },
+        { label: `– ${R.vacancyLoss}`, value: usd.format(vacancyLoss) },
+        { label: R.effectiveGrossIncome, value: usd.format(egi), emphasis: true },
+        { label: R.propertyTax, value: usd.format(num(tax)), indent: true },
+        { label: R.insurance, value: usd.format(num(insurance)), indent: true },
+        { label: R.managementFee, value: usd.format(managementFee), indent: true },
+        { label: R.maintenanceReserve, value: usd.format(maintenanceReserve), indent: true },
+        ...(hoaAnnual > 0 ? [{ label: R.hoaFee, value: usd.format(hoaAnnual), indent: true }] : []),
+        { label: R.noi, value: usd.format(noi), emphasis: true },
+        { label: `– ${R.annualDebtService}`, value: usd.format(annualDebtService) },
+        { label: R.cashFlowAnnual, value: usd.format(cashFlowAnnual), emphasis: true },
+      ],
+      tables: [{
+        title: P.title,
+        columns: [P.yearHeader, P.propertyValueHeader, P.loanBalanceHeader, P.equityHeader, P.cumulativeCashFlowHeader, P.totalReturnHeader, P.totalRoiHeader],
+        rows: proformaRows.map((row) => [
+          `${row.year}${row.paidOff ? P.paidOffSuffix : ''}`,
+          usd.format(row.propertyValue),
+          usd.format(row.remainingBalance),
+          usd.format(row.equity),
+          usd.format(row.cumulativeCashFlow),
+          usd.format(row.totalReturn),
+          pct1.format(row.totalRoi),
+        ]),
+        summary: finalProformaRow
+          ? X.proformaSummary
+              .replace('{year}', String(finalProformaRow.year))
+              .replace('{amount}', usd.format(finalProformaRow.totalReturn))
+              .replace('{roi}', pct1.format(finalProformaRow.totalRoi))
+              .replace('{invested}', usd.format(totalCashInvested))
+          : null,
+        disclaimer: P.disclaimer,
+      }],
+      notes: [
+        `${R.capRate}: ${R.capRateNote}`,
+        `${R.cashOnCash}: ${R.cashOnCashNote}`,
+        `${R.dscr}: ${R.dscrNote}`,
+        !vacancyTouched && city === 'south-padre-island' ? X.vacancyNoteSpi : vacancyNoteText,
+        insuranceNoteText,
+      ].filter(Boolean),
+      dataStamps: [
+        {
+          label: X.rate,
+          value: rateTouched ? X.rateEntered
+            : rates.live ? X.rateLive
+                .replace('{base}', String(rates.rate30))
+                .replace('{spread}', String(INVESTOR_RATE_SPREAD))
+                .replace('{date}', formatDate(rates.asOfDate, lang))
+            : X.rateDefault,
+        },
+        {
+          label: X.propertyTax,
+          value: taxTouched ? X.taxEntered
+            : X.taxDefault.replace('{city}', cityName).replace('{pct}', round1(taxRateFor(city) * 100)),
+        },
+        {
+          label: X.vacancy,
+          value: vacancyTouched ? X.vacancyEntered
+            : city === 'south-padre-island' ? X.vacancyDefaultSpi : X.vacancyDefault,
+        },
+      ],
+      disclaimers: [copy.disclaimer],
+    };
+  }
 
   const [showLead, setShowLead] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
@@ -624,6 +734,8 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
           </div>
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
+
+          <ExportButton lang={lang} getPayload={buildExportPayload} className="mt-6" />
 
           <div className="mt-6 border-t border-ink/10 pt-6">
             {!showLead && !leadSent && (
