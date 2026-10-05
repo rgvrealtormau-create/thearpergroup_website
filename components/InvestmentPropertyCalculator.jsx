@@ -249,7 +249,6 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
   const finalProformaRow = proformaRows[proformaRows.length - 1];
 
   // Normalized payload for the shared PDF template (lib/export) — built on click only.
-  // Subtraction rows use "–" (en dash): the placeholder PDF fonts have no U+2212 minus.
   function buildExportPayload() {
     const X = copy.export;
     const P = copy.proforma;
@@ -287,9 +286,6 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
         { label: L.hoaFee, value: usd.format(num(hoaMonthly)) },
         { label: L.propertyTax, value: usd.format(num(tax)) },
         { label: L.insurance, value: usd.format(num(insurance)) },
-        { label: L.rentGrowth, value: `${round1(num(rentGrowthPercent))}%` },
-        { label: L.appreciation, value: `${round1(num(appreciationPercent))}%` },
-        { label: L.expenseInflation, value: `${round1(num(expenseInflationPercent))}%` },
       ],
       results: [
         { label: R.grossScheduledIncome, value: usd.format(gsi) },
@@ -306,6 +302,12 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
       ],
       tables: [{
         title: P.title,
+        // The outlook's own assumptions sit with the table rather than in "Your numbers".
+        intro: [
+          `${L.rentGrowth}: ${round1(num(rentGrowthPercent))}%`,
+          `${L.appreciation}: ${round1(num(appreciationPercent))}%`,
+          `${L.expenseInflation}: ${round1(num(expenseInflationPercent))}%`,
+        ].join('  ·  '),
         columns: [P.yearHeader, P.propertyValueHeader, P.loanBalanceHeader, P.equityHeader, P.cumulativeCashFlowHeader, P.totalReturnHeader, P.totalRoiHeader],
         rows: proformaRows.map((row) => [
           `${row.year}${row.paidOff ? P.paidOffSuffix : ''}`,

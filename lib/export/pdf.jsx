@@ -9,17 +9,32 @@
 //     inputs: [{ label, value }], results: [{ label, value, emphasis?, indent? }],
 //     tables?: [{ title, intro?, columns: [string], rows: [[string]], summary?, disclaimer? }],
 //     notes: [string], dataStamps: [{ label, value }], disclaimers: [string] }
-// Values arrive already formatted. Text must stay within the WinAnsi character set while
-// the placeholder fonts are in use (e.g. use "–", not the U+2212 minus sign).
+// Values arrive already formatted.
 
 import { Document, Font, Image, Page, StyleSheet, Text, View, pdf } from '@react-pdf/renderer';
 import { exportCopy, footer as footerCopy } from '../content';
 import { BUSINESS } from '../site';
 
-// Placeholder fonts (built into every PDF reader) until the Halyard/Larken licenses are
-// confirmed to cover PDF embedding. To swap: Font.register() the files from
-// public/fonts and change these two names.
-const FONT = { sans: 'Helvetica', accent: 'Times-Roman' };
+// Halyard Display is embedded from public/fonts. The Larken files there are the foundry's
+// DEMO builds (internal name "LarkenDEMO-Italic"), which must not be embedded in a document
+// we hand out, so the title uses the reader's built-in Times italic for now. Once the
+// licensed Larken .otf files replace them, add a Font.register for 'Larken' (300/400
+// italic) below and set accent: 'Larken'.
+const FONT = { sans: 'Halyard', accent: 'Times-Roman' };
+
+let fontsRegisteredFor = null;
+export function registerFonts(assetBase) {
+  if (fontsRegisteredFor === assetBase) return;
+  Font.register({
+    family: FONT.sans,
+    fonts: [
+      { src: `${assetBase}/fonts/halyard-display-light.otf`, fontWeight: 300 },
+      { src: `${assetBase}/fonts/halyard-display-regular.otf`, fontWeight: 400 },
+      { src: `${assetBase}/fonts/halyard-display-medium.otf`, fontWeight: 500 },
+    ],
+  });
+  fontsRegisteredFor = assetBase;
+}
 
 // Wrap on whole words only — react-pdf hyphenates by default, which splits narrow table headers.
 Font.registerHyphenationCallback((word) => [word]);
@@ -44,7 +59,7 @@ const s = StyleSheet.create({
   body: { paddingHorizontal: 40, paddingTop: 22 },
   title: { fontFamily: FONT.accent, fontStyle: 'italic', fontSize: 26, color: C.ink },
   subtitle: { marginTop: 6, fontSize: 9.5, color: C.ink70, lineHeight: 1.45, maxWidth: 440 },
-  headlineBox: { marginTop: 20, backgroundColor: C.cream, paddingVertical: 16, paddingHorizontal: 18, borderLeftWidth: 3, borderLeftColor: C.gold },
+  headlineBox: { marginTop: 18, backgroundColor: C.cream, paddingVertical: 14, paddingHorizontal: 18, borderLeftWidth: 3, borderLeftColor: C.gold },
   eyebrow: { fontSize: 7.5, letterSpacing: 1.6, textTransform: 'uppercase', color: C.petrol },
   headlineValue: { marginTop: 6, fontSize: 30, color: C.ink },
   headlineSub: { marginTop: 3, fontSize: 9.5, color: C.ink70 },
@@ -56,10 +71,10 @@ const s = StyleSheet.create({
   columns: { marginTop: 18, flexDirection: 'row', gap: 28 },
   column: { flex: 1 },
   sectionHead: { paddingBottom: 6, borderBottomWidth: 0.75, borderBottomColor: C.rule },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4.5, borderBottomWidth: 0.5, borderBottomColor: C.rule },
+  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3.5, fontSize: 9, borderBottomWidth: 0.5, borderBottomColor: C.rule },
   rowLabel: { color: C.ink70, flex: 1, paddingRight: 10 },
   rowValue: { color: C.ink, textAlign: 'right' },
-  rowEmphasis: { fontFamily: FONT.sans, fontWeight: 'bold' },
+  rowEmphasis: { fontWeight: 500 },
   rowIndentLabel: { color: C.ink50, paddingLeft: 10 },
   rowIndentValue: { color: C.ink70 },
   tableRow: { flexDirection: 'row', paddingVertical: 4.5, borderBottomWidth: 0.5, borderBottomColor: C.rule },
@@ -76,7 +91,11 @@ const s = StyleSheet.create({
   footerCol: { color: C.cream, fontSize: 8, lineHeight: 1.5 },
   footerStrong: { color: C.cream, fontSize: 8.5 },
   footerMuted: { color: '#B9C2C7' },
-  alliance: { width: 79, height: 20, marginBottom: 5 },
+  // TREC 22 TAC §535.155: the broker's name must be at least half the size of the largest
+  // team name/contact info in the ad. The ARPER letters in the 22pt-tall header wordmark are
+  // ~20.2pt; at 26pt tall, the ALLIANCE letters here are ~12.8pt (~63%). Keep that ratio
+  // above 50% if either logo is resized.
+  alliance: { width: 103, height: 26, marginBottom: 5 },
 });
 
 function Row({ label, value, emphasis, indent }) {
@@ -92,8 +111,9 @@ function Row({ label, value, emphasis, indent }) {
 function Table({ table }) {
   const cellStyle = (i) => (i === 0 ? [s.tableCell, s.tableFirstCell] : s.tableCell);
   return (
-    <View style={s.block}>
-      <View style={s.sectionHead} minPresenceAhead={80}><Text style={s.eyebrow}>{table.title}</Text></View>
+    // Kept whole (these tables are short) so the heading never strands at a page bottom.
+    <View style={s.block} wrap={false}>
+      <View style={s.sectionHead}><Text style={s.eyebrow}>{table.title}</Text></View>
       {table.intro ? <Text style={s.note}>{table.intro}</Text> : null}
       <View style={[s.tableRow, { marginTop: 6 }]} wrap={false}>
         {table.columns.map((c, i) => <Text key={c} style={[].concat(cellStyle(i), s.tableHead)}>{c}</Text>)}
@@ -218,6 +238,7 @@ export function exportFilename(payload, date = new Date()) {
 }
 
 export async function renderPdfBlob(payload) {
+  registerFonts(window.location.origin);
   return pdf(<ExportDocument payload={payload} assetBase={window.location.origin} />).toBlob();
 }
 
