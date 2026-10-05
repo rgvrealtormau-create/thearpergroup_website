@@ -1,3 +1,4 @@
+import { BUILDHERE_EMBED_URL, BUILDHERE_INVENTORY_URL, publicCedarRidgeInventory } from '../../../../../lib/cedar-ridge-inventory';
 import { Suspense } from 'react';
 import { cedarRidge } from '../../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../../lib/site';
@@ -5,21 +6,19 @@ import JsonLd from '../../../../../components/JsonLd';
 import { CedarRidgeLogo } from '../../../../../components/CedarRidgeLogo';
 import CedarRidgeInventoryExperience from '../../../../../components/CedarRidgeInventoryExperience';
 
-const BUILDHERE_EMBED_URL = 'https://subdivision-plat-app.vercel.app/c/cedar-ridge-reserve-892049';
-const BUILDHERE_INVENTORY_URL = 'https://subdivision-plat-app.vercel.app/api/public/communities/cedar-ridge-reserve-892049/inventory';
 
 const COPY = {
   en: {
     eyebrow: 'Cedar Ridge Reserve',
     title: 'Full lot inventory',
-    lede: 'Compare every homesite, filter current availability, and select a lot on the map or from the cards below.',
+    lede: 'Phase 1 is sold. Explore 69 Phase 2 lots in pre-sale at $10.50 per square foot, with current sizes and pricing from BuildHere.',
     back: 'Back to community',
     unavailable: 'Inventory is temporarily unavailable. Please check back shortly.',
   },
   es: {
     eyebrow: 'Cedar Ridge Reserve',
     title: 'Inventario completo de lotes',
-    lede: 'Compara todos los terrenos, filtra la disponibilidad actual y selecciona un lote en el mapa o en las tarjetas.',
+    lede: 'La Fase 1 está vendida. Explora 69 lotes de la Fase 2 en preventa a $10.50 por pie cuadrado, con tamaños y precios actuales de BuildHere.',
     back: 'Volver a la comunidad',
     unavailable: 'El inventario no está disponible temporalmente. Intenta de nuevo en unos momentos.',
   },
@@ -31,7 +30,7 @@ async function getInventory() {
   try {
     const response = await fetch(BUILDHERE_INVENTORY_URL, { next: { revalidate: 30 } });
     if (!response.ok) return null;
-    return response.json();
+    return publicCedarRidgeInventory(await response.json());
   } catch {
     return null;
   }

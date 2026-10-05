@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
-const BUILDHERE_ORIGIN = 'https://subdivision-plat-app.vercel.app';
+import { BUILDHERE_ORIGIN } from '../lib/cedar-ridge-inventory';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const COPY = {

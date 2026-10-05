@@ -10,7 +10,7 @@ import { sendVittoriaWelcomeEmail, sendVittoriaLeadAlert } from '../../../lib/vi
 export const runtime = 'nodejs';
 
 const LANGUAGE_LABEL = { en: 'English', es: 'Spanish' };
-const CEDAR_RIDGE_INVENTORY_URL = 'https://subdivision-plat-app.vercel.app/api/public/communities/cedar-ridge-reserve-892049/inventory';
+import { BUILDHERE_INVENTORY_URL as CEDAR_RIDGE_INVENTORY_URL, publicCedarRidgeInventory } from '../../../lib/cedar-ridge-inventory';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function money(value) {
@@ -23,7 +23,7 @@ async function getCurrentCedarRidgeLot(lotId) {
   try {
     const response = await fetch(CEDAR_RIDGE_INVENTORY_URL, { cache: 'no-store' });
     if (!response.ok) return null;
-    const inventory = await response.json();
+    const inventory = publicCedarRidgeInventory(await response.json());
     return inventory.lots?.find((lot) => lot.id === lotId) || null;
   } catch {
     return null;

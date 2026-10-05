@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
-const BUILDHERE_ORIGIN = 'https://subdivision-plat-app.vercel.app';
+import { BUILDHERE_ORIGIN } from '../lib/cedar-ridge-inventory';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUS_ORDER = ['available', 'pre-sale', 'reserved', 'sold'];
 
@@ -164,7 +164,7 @@ export default function CedarRidgeAvailabilityMap({ baseUrl, embedTitle, invento
       <div className="flex flex-wrap items-end gap-3">
         <fieldset className="min-w-full sm:min-w-0"><legend className="mb-2 text-xs uppercase tracking-wide text-crivory/60">{copy.status}</legend><div className="flex flex-wrap gap-2">{statuses.map((status) => <button type="button" aria-pressed={activeStatuses.has(status)} key={status} onClick={() => toggleStatus(status)} className={`rounded-full border px-3 py-2 text-xs font-medium transition ${activeStatuses.has(status) ? 'border-crbrass bg-crbrass text-crnavy' : 'border-crivory/25 text-crivory/70 hover:border-crivory/60'}`}>{copy[status]} · {counts[status]}</button>)}</div></fieldset>
         <label className="grid gap-1 text-xs uppercase tracking-wide text-crivory/60">{copy.phase}<select value={phase} onChange={(event) => setPhase(event.target.value)} className="min-w-36 rounded-sm border border-crivory/20 bg-crnavy px-3 py-2.5 text-sm normal-case text-crivory"><option value="all">{copy.allPhases}</option>{phases.map((value) => <option key={value} value={value}>{copy.phaseLabel} {value}</option>)}</select></label>
-        <label className="grid gap-1 text-xs uppercase tracking-wide text-crivory/60">{copy.price}<select value={price} onChange={(event) => setPrice(event.target.value)} className="min-w-36 rounded-sm border border-crivory/20 bg-crnavy px-3 py-2.5 text-sm normal-case text-crivory"><option value="all">{copy.anyPrice}</option><option value="80000">{copy.under} $80,000</option><option value="100000">{copy.under} $100,000</option><option value="125000">{copy.under} $125,000</option></select></label>
+        <label className="grid gap-1 text-xs uppercase tracking-wide text-crivory/60">{copy.price}<select value={price} onChange={(event) => setPrice(event.target.value)} className="min-w-36 rounded-sm border border-crivory/20 bg-crnavy px-3 py-2.5 text-sm normal-case text-crivory"><option value="all">{copy.anyPrice}</option><option value="55000">{copy.under} $55,000</option><option value="60000">{copy.under} $60,000</option><option value="65000">{copy.under} $65,000</option><option value="80000">{copy.under} $80,000</option></select></label>
         <label className="grid gap-1 text-xs uppercase tracking-wide text-crivory/60">{copy.size}<select value={size} onChange={(event) => setSize(event.target.value)} className="min-w-40 rounded-sm border border-crivory/20 bg-crnavy px-3 py-2.5 text-sm normal-case text-crivory"><option value="all">{copy.anySize}</option><option value="small">{copy.under} 7,000 {copy.sqFt}</option><option value="medium">7,000–9,000 {copy.sqFt}</option><option value="large">9,000 {copy.sqFt}{copy.plus}</option></select></label>
         <button type="button" onClick={clearFilters} className="px-2 py-2.5 text-sm text-crivory/65 underline decoration-crbrass/70 underline-offset-4 hover:text-crivory">{copy.clear}</button>
       </div>
