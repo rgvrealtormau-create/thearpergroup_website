@@ -200,6 +200,9 @@ test('cards link to the calculator that fits: homes and condos to the mortgage o
     { price: 259000, priceText: '$259,000', citySlug: 'edinburg', label: '1615 Gloria Ann Dr · Edinburg' });
   assert.equal(offered.find((l) => l.id === 'odd').citySlug, null, 'a city the calculators do not know leaves the area alone');
   assert.deepEqual(importableListings(cards, ['multifamily']).map((l) => l.id), ['four']);
+  const yuma = importableListings(toCards([row({ id: 'y', category: 'condos', title_en: 'Units 1002 and 1003', title_es: 'Unidades 1002 y 1003', city_line: 'McAllen, TX 78503' })]))[0];
+  assert.equal(yuma.label, 'Units 1002 and 1003 · McAllen');
+  assert.equal(yuma.labelEs, 'Unidades 1002 y 1003 · McAllen');
 
   // The calculators still work when the portal cannot be reached: nothing to import, no error.
   assert.deepEqual(await getImportableListings(null, { fetchImpl: async () => ({ ok: false, status: 503 }) }), []);

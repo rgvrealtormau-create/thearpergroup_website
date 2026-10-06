@@ -37,6 +37,7 @@ const COPY = {
 export default function ListingImport({ lang, listings = [], onImport, usesArea = true, note = null }) {
   const c = COPY[lang] ?? COPY.en;
   const [picked, setPicked] = useState('');
+  const name = (l) => (lang === 'es' && l.labelEs) || l.label;
 
   function pick(id) {
     setPicked(id);
@@ -66,13 +67,13 @@ export default function ListingImport({ lang, listings = [], onImport, usesArea 
         >
           <option value="">{c.choose}</option>
           {listings.map((l) => (
-            <option key={l.id} value={l.id}>{l.label} · {l.priceText}</option>
+            <option key={l.id} value={l.id}>{name(l)} · {l.priceText}</option>
           ))}
         </select>
       </label>
       {current && (
         <p aria-live="polite" className="mt-2 text-xs text-ink/70">
-          {usesArea && current.citySlug ? c.filled : c.filledPrice} {current.label}. {c.change}
+          {usesArea && current.citySlug ? c.filled : c.filledPrice} {name(current)}. {c.change}
           {note ? ` ${note}` : ''}{' '}
           <Link href={`/${lang}/listings#listing-${current.id}`} className="text-petrol link-underline">{c.see}</Link>
         </p>
