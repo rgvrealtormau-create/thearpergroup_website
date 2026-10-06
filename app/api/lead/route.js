@@ -6,7 +6,7 @@ import { appendLeadRow } from '../../../lib/googleSheets';
 import { sendBrivityEmail } from '../../../lib/brivity';
 import { VITTORIA_MODEL_HOME_AGENTS, parseVittoriaLotParams } from '../../../lib/site';
 import { sendVittoriaWelcomeEmail, sendVittoriaLeadAlert } from '../../../lib/vittoriaEmail';
-import { featuredInquiryOptions } from '../../../lib/content';
+import { getFeaturedListings, inquiryOptions } from '../../../lib/listings';
 
 export const runtime = 'nodejs';
 
@@ -47,12 +47,15 @@ const FORM_META = {
   featured_listings: { label: 'Website — Featured Listings', note: 'Featured listings inquiry' },
 };
 
-// The Featured listings form sends the slug of the listing the visitor picked. It is
-// looked up against the site's own list (this endpoint is public), so only a real
-// listing name ever reaches the sheet and Brivity.
-function featuredListingLabel(slug) {
+// The Featured listings form sends the id of the listing the visitor picked. It is
+// looked up against what the page itself is showing (this endpoint is public), so only
+// a real listing name ever reaches the sheet and Brivity. If the portal cannot be
+// reached the lead is still saved, just without the listing's name in the note.
+async function featuredListingLabel(slug) {
   if (typeof slug !== 'string') return null;
-  return featuredInquiryOptions('en').find((option) => option.slug === slug)?.label || null;
+  let cards = [];
+  try { cards = await getFeaturedListings(); } catch { /* communities can still be matched */ }
+  return inquiryOptions('en', cards).find((option) => option.slug === slug)?.labelEn || null;
 }
 
 function splitName(name) {
@@ -71,7 +74,7 @@ export async function POST(request) {
   }
 
   const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent, lot, community, subject, listing } = body || {};
-  const featuredListing = formType === 'featured_listings' ? featuredListingLabel(listing) : null;
+  const featuredListing = formType === 'featured_listings' ? await featuredListingLabel(listing) : null;
   // Only credit agents on the model-home roster, so the referral column stays clean.
   const referral = VITTORIA_MODEL_HOME_AGENTS.includes(referralAgent) ? referralAgent : null;
   // Re-validate the BuildHere lot fields server-side too (this endpoint is public and could

@@ -1,17 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { featuredPage, featuredInquiryOptions } from '../lib/content';
+import { featuredPage } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY, BUSINESS } from '../lib/site';
 import { SELECT_LISTING_EVENT } from './FeaturedListings';
 
 // Inquiry form on the Featured listings page. The "Which listing?" dropdown is
 // pre-selected when a visitor clicks an "Ask about this…" link on a card.
+// `options` is the list for that dropdown, built by the page from the communities and
+// the portal's listings: [{ slug, label, labelEn }].
 // Leads go to /api/lead (Google Sheet + Brivity) and Web3Forms (email alert),
 // the same two destinations as every other form on the site.
-export default function ListingInquiryForm({ lang }) {
+export default function ListingInquiryForm({ lang, options }) {
   const c = featuredPage[lang].contact.form;
-  const options = featuredInquiryOptions(lang);
 
   const [listing, setListing] = useState('');
   const [busy, setBusy] = useState(false);
@@ -24,9 +25,7 @@ export default function ListingInquiryForm({ lang }) {
     }
     window.addEventListener(SELECT_LISTING_EVENT, onSelect);
     return () => window.removeEventListener(SELECT_LISTING_EVENT, onSelect);
-    // `options` is derived from static content, so it never changes between renders.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [options]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -40,7 +39,7 @@ export default function ListingInquiryForm({ lang }) {
     const email = String(data.get('email') || '').trim();
     const message = String(data.get('message') || '').trim();
     // Always report the listing in English so leads read the same in the sheet and in Brivity.
-    const label = featuredInquiryOptions('en').find((o) => o.slug === listing)?.label || 'Not sure yet';
+    const label = options.find((o) => o.slug === listing)?.labelEn || 'Not sure yet';
 
     const detail = [
       'Source: Featured listings page',

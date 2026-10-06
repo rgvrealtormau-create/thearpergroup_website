@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { featuredPage, featuredCommunities, featuredListings, FEATURED_UPDATED } from '../../../lib/content';
+import { featuredPage, featuredCommunities, HERO_LISTINGS } from '../../../lib/content';
+import { getFeaturedListings, inquiryOptions, lastUpdated } from '../../../lib/listings';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../lib/site';
 import JsonLd from '../../../components/JsonLd';
 import FeaturedListings, { AskLink } from '../../../components/FeaturedListings';
@@ -10,7 +11,12 @@ import cedarRidgeLogo from '../../../public/brand/cedar-ridge-logo-reversed.png'
 // Featured listings: every property The Arper Group lists directly.
 // Communities (each with its own page) come first, then the individual listings
 // in a filterable grid, then one inquiry form for all of them.
-// All copy and listing data live in lib/content.js.
+//
+// The communities and the page's words live in lib/content.js. The individual listings
+// come from the Arper portal (lib/listings.js): this page asks again about once a minute,
+// so a listing ticked "Show on the website" there appears here, and one that closes,
+// expires or is withdrawn drops off, without anyone touching this site.
+export const revalidate = 60; // keep in step with LISTING_REFRESH_SECONDS
 
 export async function generateMetadata({ params }) {
   const c = featuredPage[params.lang];
@@ -81,9 +87,19 @@ function CommunityCard({ community: m, lang, c }) {
   );
 }
 
-export default function FeaturedListingsPage({ params }) {
+export default async function FeaturedListingsPage({ params }) {
   const lang = params.lang;
   const c = featuredPage[lang];
+  const listings = await getFeaturedListings();
+  const options = inquiryOptions(lang, listings);
+  const updated = lastUpdated(listings);
+  // "October 2026" / "octubre de 2026"
+  const updatedText = updated
+    ? updated.toLocaleDateString(lang === 'es' ? 'es-MX' : 'en-US', { year: 'numeric', month: 'long', timeZone: 'America/Chicago' })
+    : null;
+  // The hero photo's "from $…": the lowest-priced fourplex on the street it shows.
+  const heroListings = listings.filter((l) => l.category === 'multifamily' && !l.priceSuffix && HERO_LISTINGS.test(l.geo));
+  const heroFrom = heroListings.length ? heroListings.reduce((low, l) => (l.amount < low.amount ? l : low)).price : null;
 
   const breadcrumb = breadcrumbSchema([
     { name: c.breadcrumbHome, url: `${BUSINESS.url}/${lang}` },
@@ -106,7 +122,7 @@ export default function FeaturedListingsPage({ params }) {
             <p className="mt-5 max-w-xl text-lg text-cream/85">{c.intro}</p>
             <ul className="mt-7 flex flex-wrap gap-x-5 gap-y-2.5 text-sm text-cream/85">
               <li className="border-l border-gold/70 pl-3">{c.statCommunities(featuredCommunities.length)}</li>
-              <li className="border-l border-gold/70 pl-3">{c.statListings(featuredListings.length)}</li>
+              <li className="border-l border-gold/70 pl-3">{c.statListings(listings.length)}</li>
               <li className="border-l border-gold/70 pl-3">{c.statCities}</li>
             </ul>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -129,7 +145,7 @@ export default function FeaturedListingsPage({ params }) {
                 className="object-cover"
               />
             </div>
-            <figcaption className="mt-2 text-xs text-cream/75">{c.heroCaption}</figcaption>
+            <figcaption className="mt-2 text-xs text-cream/75">{c.heroCaption}{heroFrom ? ` · ${c.heroFrom(heroFrom)}` : ''}</figcaption>
           </figure>
         </div>
       </section>
@@ -159,7 +175,7 @@ export default function FeaturedListingsPage({ params }) {
             {c.listings.titlePre}
             <span className="italic">{c.listings.titleAccent}</span>
           </h2>
-          <FeaturedListings lang={lang} />
+          <FeaturedListings lang={lang} listings={listings} />
         </div>
       </section>
 
@@ -209,7 +225,7 @@ export default function FeaturedListingsPage({ params }) {
               </div>
             </div>
           </div>
-          <ListingInquiryForm lang={lang} />
+          <ListingInquiryForm lang={lang} options={options} />
         </div>
       </section>
 
@@ -226,7 +242,7 @@ export default function FeaturedListingsPage({ params }) {
       <section>
         <div className="wrap pt-7">
           <p className="max-w-4xl text-xs text-ink/70">
-            {c.finePrint} {c.updated(FEATURED_UPDATED[lang])}
+            {c.finePrint}{updatedText ? ` ${c.updated(updatedText)}` : ''}
           </p>
         </div>
       </section>
