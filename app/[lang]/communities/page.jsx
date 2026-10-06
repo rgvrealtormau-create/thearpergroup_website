@@ -1,49 +1,234 @@
 import Link from 'next/link';
-import { communitiesHub } from '../../../lib/content';
+import Image from 'next/image';
+import { featuredPage, featuredCommunities, featuredListings, FEATURED_UPDATED } from '../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../lib/site';
 import JsonLd from '../../../components/JsonLd';
+import FeaturedListings, { AskLink } from '../../../components/FeaturedListings';
+import ListingInquiryForm from '../../../components/ListingInquiryForm';
+import cedarRidgeLogo from '../../../public/brand/cedar-ridge-logo-reversed.png';
+
+// Featured listings: every property The Arper Group lists directly.
+// Communities (each with its own page) come first, then the individual listings
+// in a filterable grid, then one inquiry form for all of them.
+// All copy and listing data live in lib/content.js.
 
 export async function generateMetadata({ params }) {
-  const c = communitiesHub[params.lang];
-  return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang, 'communities') };
+  const c = featuredPage[params.lang];
+  return {
+    title: c.metaTitle,
+    description: c.metaDesc,
+    alternates: pageAlternates(params.lang, 'communities'),
+    openGraph: { images: [{ url: '/photos/listings/tierra-encantada.jpg', width: 1000, height: 667 }] },
+  };
 }
 
-export default function CommunitiesHub({ params }) {
+const eyebrowCls = 'text-xs uppercase tracking-[0.18em]';
+
+function CommunityCard({ community: m, lang, c }) {
+  const primaryHref = m.links ? `/${lang}/${m.links[0].path}` : null;
+  const media = m.logo ? (
+    <div className="flex aspect-[4/3] items-center justify-center bg-crnavy">
+      <Image src={cedarRidgeLogo} alt="Cedar Ridge Reserve" sizes="240px" className="h-auto w-2/3" />
+    </div>
+  ) : (
+    <div className="relative aspect-[4/3] bg-petrol">
+      <Image
+        src={m.img}
+        alt={m.alt[lang]}
+        fill
+        sizes="(min-width: 1024px) 346px, (min-width: 640px) 50vw, 100vw"
+        className="object-cover"
+      />
+      {m.rendering && (
+        <span className="absolute bottom-2 right-2 rounded-sm bg-ink/80 px-1.5 py-0.5 text-[11px] text-cream">
+          {c.listings[m.rendering]}
+        </span>
+      )}
+    </div>
+  );
+
+  return (
+    <article id={m.slug} className="flex scroll-mt-24 flex-col border border-ink/15 bg-cream/40">
+      {primaryHref ? (
+        <Link href={primaryHref} aria-label={m.name[lang]} tabIndex={-1}>{media}</Link>
+      ) : (
+        media
+      )}
+      <div className="flex flex-1 flex-col p-6">
+        <span className="inline-block w-fit rounded-sm bg-gold/30 px-2 py-1 text-xs font-medium uppercase tracking-wide text-clay">
+          {m.location}
+        </span>
+        <h3 className="mt-3.5 font-display text-[26px] leading-tight">{m.name[lang]}</h3>
+        <p className="mt-2.5 text-[15px] text-ink/80">{m.blurb[lang]}</p>
+        <ul className="mt-4 flex flex-1 flex-col gap-2 text-sm">
+          {m.facts[lang].map((fact) => (
+            <li key={fact} className="border-l-2 border-gold pl-2.5">{fact}</li>
+          ))}
+          <li className="border-l-2 border-petrol pl-2.5 font-medium text-petrol">{m.cso[lang]}</li>
+        </ul>
+        <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium text-petrol">
+          {m.links?.map((link) => (
+            <Link key={link.path} href={`/${lang}/${link.path}`} className="py-2.5 link-underline">
+              {link.label[lang]} →
+            </Link>
+          ))}
+          {m.ask && (
+            <AskLink slug={m.slug} className="py-2.5 link-underline">{m.ask[lang]} →</AskLink>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export default function FeaturedListingsPage({ params }) {
   const lang = params.lang;
-  const c = communitiesHub[lang];
+  const c = featuredPage[lang];
 
   const breadcrumb = breadcrumbSchema([
-    { name: lang === 'es' ? 'Inicio' : 'Home', url: `${BUSINESS.url}/${lang}` },
-    { name: c.title, url: `${BUSINESS.url}/${lang}/communities` },
+    { name: c.breadcrumbHome, url: `${BUSINESS.url}/${lang}` },
+    { name: c.eyebrow, url: `${BUSINESS.url}/${lang}/communities` },
   ]);
 
   return (
     <>
       <JsonLd data={breadcrumb} />
+
+      {/* Hero */}
       <section className="bg-petrol text-cream">
-        <div className="wrap py-20">
-          <p className="text-sm text-cream/70">{c.eyebrow}</p>
-          <h1 className="mt-3 text-4xl md:text-6xl italic">{c.title}</h1>
-          <p className="mt-6 max-w-2xl text-lg text-cream/85">{c.intro}</p>
+        <div className="wrap grid items-center gap-12 py-16 md:grid-cols-2 md:py-20">
+          <div>
+            <p className={`${eyebrowCls} text-gold`}>{c.eyebrow}</p>
+            <h1 className="mt-3.5 text-4xl leading-[1.06] md:text-6xl">
+              {c.titlePre}
+              <span className="italic">{c.titleAccent}</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-lg text-cream/85">{c.intro}</p>
+            <ul className="mt-7 flex flex-wrap gap-x-5 gap-y-2.5 text-sm text-cream/85">
+              <li className="border-l border-gold/70 pl-3">{c.statCommunities(featuredCommunities.length)}</li>
+              <li className="border-l border-gold/70 pl-3">{c.statListings(featuredListings.length)}</li>
+              <li className="border-l border-gold/70 pl-3">{c.statCities}</li>
+            </ul>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a href="#listings" className="inline-flex min-h-[44px] items-center justify-center rounded-sm bg-gold px-6 text-sm font-medium text-ink hover:bg-cream">
+                {c.browseCta}
+              </a>
+              <a href="#communities" className="inline-flex min-h-[44px] items-center justify-center rounded-sm border border-cream/50 px-6 text-sm text-cream hover:bg-cream hover:text-petrol">
+                {c.communitiesCta}
+              </a>
+            </div>
+          </div>
+          <figure>
+            <div className="relative aspect-[3/2]">
+              <Image
+                src="/photos/listings/north-park-fourplex-dusk.jpg"
+                alt={c.heroAlt}
+                fill
+                priority
+                sizes="(min-width: 768px) 520px, 100vw"
+                className="object-cover"
+              />
+            </div>
+            <figcaption className="mt-2 text-xs text-cream/75">{c.heroCaption}</figcaption>
+          </figure>
         </div>
       </section>
 
-      <section className="wrap py-16 md:py-20">
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {c.cards.map((card) => (
-            <Link
-              key={card.name}
-              href={card.href}
-              className="group flex flex-col border border-ink/15 bg-cream/40 p-6 transition-colors hover:border-petrol"
-            >
-              <span className="inline-block w-fit rounded-sm bg-gold/25 px-2 py-1 text-xs font-medium uppercase tracking-wide text-clay">
-                {card.location}
-              </span>
-              <h3 className="mt-3 font-display text-2xl">{card.name}</h3>
-              <p className="mt-3 flex-1 text-sm text-ink/75">{card.blurb}</p>
-              <span className="mt-5 text-sm font-medium text-petrol link-underline">{card.cta} →</span>
-            </Link>
-          ))}
+      {/* Communities */}
+      <section id="communities" className="scroll-mt-20">
+        <div className="wrap py-16 md:py-20">
+          <p className={`${eyebrowCls} text-clay`}>{c.communities.eyebrow}</p>
+          <h2 className="mt-3 text-3xl md:text-[40px]">
+            {c.communities.titlePre}
+            <span className="italic">{c.communities.titleAccent}</span>
+          </h2>
+          <p className="mt-3.5 max-w-2xl text-ink/80">{c.communities.lede}</p>
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredCommunities.map((m) => (
+              <CommunityCard key={m.slug} community={m} lang={lang} c={c} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Individual listings */}
+      <section id="listings" className="scroll-mt-20 bg-cream">
+        <div className="wrap py-16 md:py-20">
+          <p className={`${eyebrowCls} text-clay`}>{c.listings.eyebrow}</p>
+          <h2 className="mt-3 text-3xl md:text-[40px]">
+            {c.listings.titlePre}
+            <span className="italic">{c.listings.titleAccent}</span>
+          </h2>
+          <FeaturedListings lang={lang} />
+        </div>
+      </section>
+
+      {/* Run the numbers */}
+      <section>
+        <div className="wrap grid items-center gap-x-14 gap-y-6 py-16 md:grid-cols-2">
+          <div>
+            <p className={`${eyebrowCls} text-clay`}>{c.numbers.eyebrow}</p>
+            <h2 className="mt-3 text-3xl">
+              {c.numbers.titlePre}
+              <span className="italic">{c.numbers.titleAccent}</span>
+              {c.numbers.titlePost}
+            </h2>
+          </div>
+          <ul className="border-b border-ink/15">
+            {c.numbers.links.map((link) => (
+              <li key={link.path} className="border-t border-ink/15">
+                <Link href={`/${lang}/${link.path}`} className="flex min-h-[56px] items-center justify-between gap-4 py-2 text-petrol hover:text-ink">
+                  <span>
+                    {link.name} <span className="text-sm text-ink/70">· {link.note}</span>
+                  </span>
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Contact */}
+      <section id="contact" className="scroll-mt-20 bg-petrol text-cream">
+        <div className="wrap grid gap-12 py-16 md:grid-cols-2 md:py-20">
+          <div>
+            <p className={`${eyebrowCls} text-gold`}>{c.contact.eyebrow}</p>
+            <h2 className="mt-3 text-3xl md:text-[40px]">
+              {c.contact.titlePre}
+              <span className="italic">{c.contact.titleAccent}</span>
+            </h2>
+            <p className="mt-4 max-w-md text-cream/85">{c.contact.body}</p>
+            <div className="mt-8 flex flex-wrap gap-x-12 gap-y-6">
+              <div>
+                <p className="text-[13px] text-cream/75">Mauricio Arredondo, REALTOR®</p>
+                <a href={`tel:${BUSINESS.phone}`} className="inline-flex min-h-[44px] items-center text-xl link-underline">{BUSINESS.phoneDisplay}</a>
+              </div>
+              <div>
+                <p className="text-[13px] text-cream/75">Pamela Perez, REALTOR®</p>
+                <a href={`tel:${BUSINESS.phonePamTel}`} className="inline-flex min-h-[44px] items-center text-xl link-underline">{BUSINESS.phonePam}</a>
+              </div>
+            </div>
+          </div>
+          <ListingInquiryForm lang={lang} />
+        </div>
+      </section>
+
+      {/* For agents */}
+      <section className="border-b border-ink/10 bg-cream">
+        <div className="wrap py-8">
+          <p className="max-w-3xl">
+            <span className="font-medium">{c.agents.lead}</span> {c.agents.body}
+          </p>
+        </div>
+      </section>
+
+      {/* Fine print */}
+      <section>
+        <div className="wrap pt-7">
+          <p className="max-w-4xl text-xs text-ink/70">
+            {c.finePrint} {c.updated(FEATURED_UPDATED[lang])}
+          </p>
         </div>
       </section>
     </>

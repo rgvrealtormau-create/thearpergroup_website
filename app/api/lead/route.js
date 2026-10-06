@@ -6,6 +6,7 @@ import { appendLeadRow } from '../../../lib/googleSheets';
 import { sendBrivityEmail } from '../../../lib/brivity';
 import { VITTORIA_MODEL_HOME_AGENTS, parseVittoriaLotParams } from '../../../lib/site';
 import { sendVittoriaWelcomeEmail, sendVittoriaLeadAlert } from '../../../lib/vittoriaEmail';
+import { featuredInquiryOptions } from '../../../lib/content';
 
 export const runtime = 'nodejs';
 
@@ -43,7 +44,16 @@ const FORM_META = {
   cedar_ridge_reserve: { label: 'Website — Cedar Ridge Reserve', note: 'Cedar Ridge Reserve inquiry' },
   vittoria: { label: 'Website — Vittoria', note: 'Vittoria townhomes inquiry' },
   vittoria_model_home: { label: 'Website — Vittoria model home', note: 'Vittoria model home check-in' },
+  featured_listings: { label: 'Website — Featured Listings', note: 'Featured listings inquiry' },
 };
+
+// The Featured listings form sends the slug of the listing the visitor picked. It is
+// looked up against the site's own list (this endpoint is public), so only a real
+// listing name ever reaches the sheet and Brivity.
+function featuredListingLabel(slug) {
+  if (typeof slug !== 'string') return null;
+  return featuredInquiryOptions('en').find((option) => option.slug === slug)?.label || null;
+}
 
 function splitName(name) {
   const trimmed = (name || '').trim().replace(/\s+/g, ' ');
@@ -60,7 +70,8 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent, lot, community, subject } = body || {};
+  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent, lot, community, subject, listing } = body || {};
+  const featuredListing = formType === 'featured_listings' ? featuredListingLabel(listing) : null;
   // Only credit agents on the model-home roster, so the referral column stays clean.
   const referral = VITTORIA_MODEL_HOME_AGENTS.includes(referralAgent) ? referralAgent : null;
   // Re-validate the BuildHere lot fields server-side too (this endpoint is public and could
@@ -81,7 +92,9 @@ export async function POST(request) {
     : null;
   const baseBrivityNote = formType === 'home_valuation' && address
     ? `${meta.note} — ${address}`
-    : meta.note;
+    : featuredListing
+      ? `${meta.note} — ${featuredListing}`
+      : meta.note;
   const withLot = lotAttribution ? `${baseBrivityNote} — ${lotAttribution}` : baseBrivityNote;
   const withReferral = referral ? `${withLot} — referred by ${referral} (Alliance)` : withLot;
   const brivityNote = buyerAgent ? `${withReferral} — buyer's agent: ${buyerAgent}` : withReferral;

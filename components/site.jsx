@@ -68,9 +68,8 @@ function ChevronIcon({ open }) {
   );
 }
 
-// Desktop: click-opened dropdown listing each community, so "Communities"
-// goes straight into a subdivision's page instead of a middle hub page
-// the visitor has to pick from.
+// Desktop: click-opened dropdown. The first entry opens the Featured listings
+// page (every listing); the rest go straight into each community's own page.
 function CommunitiesDropdown({ lang, label }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -97,6 +96,14 @@ function CommunitiesDropdown({ lang, label }) {
       {open && (
         <div className="absolute left-0 top-full w-56 pt-2">
           <div className="overflow-hidden rounded-sm border border-black/10 bg-cream shadow-lg">
+            {/* The full Featured listings page (every listing, not just the communities). */}
+            <Link
+              href={`/${lang}/communities`}
+              onClick={() => setOpen(false)}
+              className="block border-b border-black/10 px-4 py-3 text-sm font-medium text-petrol hover:bg-black/5 hover:text-ink"
+            >
+              {ui[lang].allFeatured} →
+            </Link>
             {cards.map((card) => (
               <Link
                 key={card.href}
@@ -132,6 +139,9 @@ function CommunitiesAccordion({ lang, label, onNavigate }) {
       </button>
       {open && (
         <div className="mt-2 flex flex-col gap-2 border-l border-black/10 pl-4">
+          <Link href={`/${lang}/communities`} className="text-sm font-medium text-petrol" onClick={onNavigate}>
+            {ui[lang].allFeatured} →
+          </Link>
           {cards.map((card) => (
             <Link key={card.href} href={card.href} className="text-sm text-petrol/80" onClick={onNavigate}>
               {card.name}
