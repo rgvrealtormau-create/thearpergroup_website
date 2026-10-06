@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
+import AskLink from './AskLink';
 import { featuredPage, FEATURED_CATEGORIES } from '../lib/content';
 import { searchUrl } from '../lib/site';
 
@@ -10,21 +12,10 @@ import { searchUrl } from '../lib/site';
 // The listings themselves come from the Arper portal (see lib/listings.js) and are
 // handed in by the page; the words around them live in lib/content.js (featuredPage).
 
-// "Ask about this…" links pre-select the listing in the inquiry form further down
-// the page. The form (ListingInquiryForm) listens for this event; the link's own
-// href="#contact" does the scrolling, so it still works without JavaScript.
-export const SELECT_LISTING_EVENT = 'arper:select-listing';
-
-export function AskLink({ slug, className = '', children }) {
-  return (
-    <a
-      href="#contact"
-      onClick={() => window.dispatchEvent(new CustomEvent(SELECT_LISTING_EVENT, { detail: slug }))}
-      className={className}
-    >
-      {children}
-    </a>
-  );
+// The map loads only when a visitor switches to it.
+const ListingsMap = dynamic(() => import('./ListingsMap'), { ssr: false, loading: () => <MapLoading /> });
+function MapLoading() {
+  return <div className="mt-7 h-[380px] animate-pulse border border-ink/15 bg-paper/60 md:h-[560px]" />;
 }
 
 const text = (value, lang) => (typeof value === 'string' ? value : value?.[lang]);
@@ -92,6 +83,7 @@ function ListingCard({ listing: l, lang, c }) {
 export default function FeaturedListings({ lang, listings }) {
   const c = featuredPage[lang].listings;
   const [filter, setFilter] = useState('all');
+  const [view, setView] = useState('grid');
 
   const total = listings.length;
   const counts = Object.fromEntries(
@@ -102,6 +94,7 @@ export default function FeaturedListings({ lang, listings }) {
   // A filter can empty out while someone is on the page (its last listing closed); fall back to All.
   const active = filter === 'all' || counts[filter] > 0 ? filter : 'all';
   const shown = active === 'all' ? listings : listings.filter((l) => l.category === active);
+  const hasMap = listings.some((l) => l.pin);
 
   const search = (
     <p className="mt-7 text-sm text-ink/80">
@@ -142,16 +135,40 @@ export default function FeaturedListings({ lang, listings }) {
             );
           })}
         </div>
-        <p aria-live="polite" className="text-sm text-ink/75">
-          {active === 'all' ? c.showingAll(total) : c.showingSome(shown.length, total)}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <p aria-live="polite" className="text-sm text-ink/75">
+            {active === 'all' ? c.showingAll(total) : c.showingSome(shown.length, total)}
+          </p>
+          {/* The map is only offered when at least one listing could be placed on it. */}
+          {hasMap && (
+            <div role="group" aria-label={c.view.label} className="flex">
+              {['grid', 'map'].map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={view === id}
+                  onClick={() => setView(id)}
+                  className={`min-h-[44px] border px-4 text-sm transition-colors first:rounded-l-sm last:-ml-px last:rounded-r-sm ${
+                    view === id ? 'relative border-petrol bg-petrol text-cream' : 'border-petrol/45 text-petrol hover:border-petrol'
+                  }`}
+                >
+                  {c.view[id]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {shown.map((l) => (
-          <ListingCard key={l.slug} listing={l} lang={lang} c={c} />
-        ))}
-      </div>
+      {view === 'map' && hasMap ? (
+        <ListingsMap lang={lang} listings={shown} c={c} />
+      ) : (
+        <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {shown.map((l) => (
+            <ListingCard key={l.slug} listing={l} lang={lang} c={c} />
+          ))}
+        </div>
+      )}
 
       {search}
     </>

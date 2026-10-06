@@ -2,9 +2,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { featuredPage, featuredCommunities, HERO_LISTINGS } from '../../../lib/content';
 import { getFeaturedListings, inquiryOptions, lastUpdated } from '../../../lib/listings';
+import { withPins } from '../../../lib/geocode';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../lib/site';
 import JsonLd from '../../../components/JsonLd';
-import FeaturedListings, { AskLink } from '../../../components/FeaturedListings';
+import FeaturedListings from '../../../components/FeaturedListings';
+import AskLink from '../../../components/AskLink';
 import ListingInquiryForm from '../../../components/ListingInquiryForm';
 import cedarRidgeLogo from '../../../public/brand/cedar-ridge-logo-reversed.png';
 
@@ -90,7 +92,8 @@ function CommunityCard({ community: m, lang, c }) {
 export default async function FeaturedListingsPage({ params }) {
   const lang = params.lang;
   const c = featuredPage[lang];
-  const listings = await getFeaturedListings();
+  // Each listing also gets its place on the map: the portal's pin, or one found from the address.
+  const listings = await withPins(await getFeaturedListings());
   const options = inquiryOptions(lang, listings);
   const updated = lastUpdated(listings);
   // "October 2026" / "octubre de 2026"

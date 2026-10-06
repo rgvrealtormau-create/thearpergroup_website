@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { featuredPage } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY, BUSINESS } from '../lib/site';
-import { SELECT_LISTING_EVENT } from './FeaturedListings';
+import { SELECT_LISTING_EVENT } from './AskLink';
 
 // Inquiry form on the Featured listings page. The "Which listing?" dropdown is
 // pre-selected when a visitor clicks an "Ask about this…" link on a card.
