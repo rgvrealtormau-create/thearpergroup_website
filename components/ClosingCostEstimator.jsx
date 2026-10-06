@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import ListingImport from './ListingImport';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
 // Kept in sync with the same constants in MortgageCalculator.jsx / SellerNetProceeds.jsx.
@@ -72,7 +73,7 @@ function prepaidInterest(loanAmount, ratePercent, closingDateStr) {
   return Math.round(loanAmount * dailyRate * daysRemaining);
 }
 
-export default function ClosingCostEstimator({ lang, copy, rates }) {
+export default function ClosingCostEstimator({ lang, copy, rates, listings = [] }) {
   const L = copy.labels;
   const R = copy.results;
 
@@ -108,6 +109,13 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
     if (!taxTouched) setAnnualTax(String(Math.round(num(salePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [salePrice, city]);
+
+  // "Import from an Arper Group listing": the listing's price and area; taxes follow from both.
+  function applyListing(listing) {
+    setSalePrice(String(listing.price));
+    setTaxTouched(false);
+    if (listing.citySlug) setCity(listing.citySlug);
+  }
 
   const downDollar = useMemo(() => Math.round((num(salePrice) * downPercent) / 100), [salePrice, downPercent]);
   const loanAmount = Math.max(num(salePrice) - downDollar, 0);
@@ -201,6 +209,7 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
     <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:items-start">
       {/* Inputs */}
       <div className="grid gap-6">
+        <ListingImport lang={lang} listings={listings} onImport={applyListing} />
         <label className="grid gap-1 text-sm">
           <span>{L.salePrice}</span>
           <div className="relative">

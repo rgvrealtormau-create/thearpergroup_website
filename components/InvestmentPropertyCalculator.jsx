@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { cities, citySlugs } from '../lib/content';
 import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import ExportButton from '../lib/export/ExportButton';
+import ListingImport from './ListingImport';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
 // Kept in sync with the same constants in MortgageCalculator.jsx / ClosingCostEstimator.jsx / SellerNetProceeds.jsx.
@@ -96,7 +97,7 @@ function monthlyPI(loanAmount, ratePercent, termYears) {
   return isFinite(pi) && !isNaN(pi) ? pi : 0;
 }
 
-export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
+export default function InvestmentPropertyCalculator({ lang, copy, rates, listings = [] }) {
   const L = copy.labels;
   const R = copy.results;
 
@@ -144,6 +145,15 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
     if (!closingCostsTouched) setClosingCosts(String(Math.round(num(price) * CLOSING_COST_ESTIMATE_RATE)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [price]);
+
+  // "Import from an Arper Group listing": the listing's price and area. Taxes and closing
+  // costs follow from them. The rent is never filled in: that is the investor's number.
+  function applyListing(listing) {
+    setPrice(String(listing.price));
+    setTaxTouched(false);
+    setClosingCostsTouched(false);
+    if (listing.citySlug) setCity(listing.citySlug);
+  }
 
   const downDollar = useMemo(() => Math.round((num(price) * downPercent) / 100), [price, downPercent]);
   const loanAmount = Math.max(num(price) - downDollar, 0);
@@ -426,6 +436,10 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
     <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:items-start">
       {/* Inputs */}
       <div className="grid gap-8">
+        <ListingImport
+          lang={lang} listings={listings} onImport={applyListing}
+          note={lang === 'es' ? 'La renta no se llena: escribe la renta real de la propiedad.' : 'The rent is not filled in: enter the property’s actual rent.'}
+        />
         <div className="grid gap-6">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-ink/50">{copy.sectionPurchase}</p>
 

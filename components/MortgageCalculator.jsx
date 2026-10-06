@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import ExportButton from '../lib/export/ExportButton';
+import ListingImport from './ListingImport';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
 const AREA_TAX_RATES = {
@@ -25,7 +26,7 @@ function num(v) {
   return parseFloat(v) || 0;
 }
 
-export default function MortgageCalculator({ lang, copy, rates }) {
+export default function MortgageCalculator({ lang, copy, rates, listings = [] }) {
   const L = copy.labels;
   const R = copy.results;
 
@@ -67,6 +68,13 @@ export default function MortgageCalculator({ lang, copy, rates }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [homePrice, downDollar, downPercent, pmiTouched]);
+
+  // "Import from an Arper Group listing": the listing's price and area; taxes follow from both.
+  function applyListing(listing) {
+    setHomePrice(String(listing.price));
+    setTaxTouched(false);
+    if (listing.citySlug) setCity(listing.citySlug);
+  }
 
   function handleTermChange(nextTerm) {
     setTerm(nextTerm);
@@ -215,6 +223,7 @@ export default function MortgageCalculator({ lang, copy, rates }) {
     <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:items-start">
       {/* Inputs */}
       <div className="grid gap-6">
+        <ListingImport lang={lang} listings={listings} onImport={applyListing} />
         <label className="grid gap-1 text-sm">
           <span>{L.homePrice}</span>
           <div className="relative">

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import ListingImport from './ListingImport';
 
 // Texas Department of Insurance promulgated basic premium rates, effective
 // March 1, 2026 (tdi.texas.gov/title/titlerates2026.html). Below $25,000 the
@@ -95,7 +96,7 @@ function round1(n) {
   return Math.round(n * 10) / 10;
 }
 
-export default function TitlePolicyCalculator({ lang, copy }) {
+export default function TitlePolicyCalculator({ lang, copy, listings = [] }) {
   const L = copy.labels;
   const R = copy.results;
 
@@ -179,6 +180,7 @@ export default function TitlePolicyCalculator({ lang, copy }) {
     <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:items-start">
       {/* Inputs */}
       <div className="grid gap-6">
+        <ListingImport lang={lang} listings={listings} onImport={(listing) => setSalePrice(String(listing.price))} usesArea={false} />
         <label className="grid gap-1 text-sm">
           <span>{L.salePrice}</span>
           <div className="relative">
