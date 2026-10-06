@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BUSINESS, SOCIAL, searchUrl, otherLang, swapLangInPath, WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import { BUSINESS, SOCIAL, searchUrl, portalUrl, otherLang, swapLangInPath, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import { nav, ui, footer as footerCopy, communitiesHub } from '../lib/content';
 import { Logo, LogoLockup, AllianceLogo } from './Logo';
 
@@ -18,6 +18,19 @@ export function SearchButton({ lang, campaign = 'nav', className = '', variant =
       className={`inline-flex items-center justify-center rounded-sm px-4 py-2 text-sm font-medium transition-colors ${variants[variant]} ${className}`}
     >
       {ui[lang].search}
+    </a>
+  );
+}
+
+// The way in for clients and agents: a quieter button than the search call to action.
+export function PortalButton({ lang, className = '' }) {
+  return (
+    <a
+      href={portalUrl(lang)}
+      aria-label={ui[lang].portalLong}
+      className={`inline-flex items-center justify-center rounded-sm border border-petrol px-4 py-2 text-sm font-medium text-petrol transition-colors hover:bg-petrol hover:text-cream ${className}`}
+    >
+      {ui[lang].portal}
     </a>
   );
 }
@@ -148,6 +161,7 @@ export function Header({ lang }) {
             )
           )}
           <SearchButton lang={lang} variant="petrol" className="whitespace-nowrap" />
+          <PortalButton lang={lang} />
           <LangToggle lang={lang} />
         </nav>
         <button className="text-sm text-petrol xl:hidden" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
@@ -164,8 +178,9 @@ export function Header({ lang }) {
                 <Link key={it.href} href={it.href} className="text-sm text-petrol" onClick={() => setOpen(false)}>{it.label}</Link>
               )
             )}
-            <div className="flex items-center gap-4 pt-2">
+            <div className="flex flex-wrap items-center gap-4 pt-2">
               <SearchButton lang={lang} variant="petrol" />
+              <PortalButton lang={lang} />
               <LangToggle lang={lang} />
             </div>
           </div>
@@ -219,6 +234,9 @@ export function Footer({ lang }) {
           </div>
           <p className="mt-4">
             <a className="link-underline" href={BUSINESS.googleBusiness} target="_blank" rel="noopener noreferrer">Google Business Profile</a>
+          </p>
+          <p className="mt-2">
+            <a className="link-underline" href={portalUrl(lang)}>{ui[lang].portalLong}</a>
           </p>
           <p className="mt-6 text-cream/60">{BUSINESS.city}, {BUSINESS.region}</p>
         </div>
