@@ -55,6 +55,7 @@ function ListingCard({ listing: l, lang, c }) {
           {l.price}
           {l.priceSuffix && <span className="text-base text-ink/75"> {text(l.priceSuffix, lang)}</span>}
         </p>
+        {l.also && <p className="mt-1 text-sm text-ink/75">{text(l.also, lang)}</p>}
         <h3 className="mt-2.5 text-[17px] font-medium leading-snug">{text(l.address, lang)}</h3>
         <p className="text-sm text-ink/75">{l.city}</p>
         <p className="mt-3 text-sm font-medium text-petrol">{text(l.facts, lang)}</p>
