@@ -55,7 +55,7 @@ export default async function CedarRidgeInventoryPage({ params }) {
 
   const breadcrumb = breadcrumbSchema([
     { name: communityCopy.breadcrumb.home, url: `${BUSINESS.url}/${lang}` },
-    { name: communityCopy.breadcrumb.communities, url: `${BUSINESS.url}/${lang}/communities` },
+    { name: communityCopy.breadcrumb.communities, url: `${BUSINESS.url}/${lang}/listings` },
     { name: 'Cedar Ridge Reserve', url: `${BUSINESS.url}${communityPath}` },
     { name: copy.title, url: `${BUSINESS.url}${communityPath}/inventory` },
   ]);

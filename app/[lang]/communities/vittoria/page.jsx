@@ -56,7 +56,7 @@ export default async function VittoriaPage({ params, searchParams }) {
 
   const breadcrumb = breadcrumbSchema([
     { name: c.breadcrumb.home, url: `${BUSINESS.url}/${lang}` },
-    { name: c.breadcrumb.hub, url: `${BUSINESS.url}/${lang}/communities` },
+    { name: c.breadcrumb.hub, url: `${BUSINESS.url}/${lang}/listings` },
     { name: 'Vittoria', url: `${BUSINESS.url}/${lang}/communities/vittoria` },
   ]);
 
@@ -68,7 +68,7 @@ export default async function VittoriaPage({ params, searchParams }) {
       <section className="bg-petrol text-cream">
         <div className="wrap grid items-center gap-10 py-14 md:grid-cols-2 md:py-20">
           <div>
-            <Link href={`/${lang}/communities`} className="text-sm text-cream/70 hover:text-cream">
+            <Link href={`/${lang}/listings`} className="text-sm text-cream/70 hover:text-cream">
               ← {c.breadcrumb.hub}
             </Link>
             <p className="mt-6 text-xs uppercase tracking-[0.18em] text-gold">{c.eyebrow}</p>
@@ -221,9 +221,9 @@ export default async function VittoriaPage({ params, searchParams }) {
           </div>
           <p className="mt-8 text-sm text-ink/70">
             {c.lenderNote}{' '}
-            <Link href={`/${lang}/resources/mortgage-calculator`} className="text-petrol link-underline">{c.calcLink} →</Link>
+            <Link href={`/${lang}/resources/mortgage-calculator`} className="text-petrol link-underline">{c.calcLink}</Link>
             {' · '}
-            <Link href={`/${lang}/rgv/weslaco`} className="text-petrol link-underline">{c.cityLink} →</Link>
+            <Link href={`/${lang}/rgv/weslaco`} className="text-petrol link-underline">{c.cityLink}</Link>
           </p>
           <p className="mt-6 max-w-3xl text-xs text-ink/50">{c.disclaimer}</p>
           </div>

@@ -60,7 +60,7 @@ function ListingCard({ listing: l, lang, c }) {
         <p className="mt-3 text-sm font-medium text-petrol">{text(l.facts, lang)}</p>
         {l.community && (
           <Link href={`/${lang}/${l.community.path}`} className="mt-1 w-fit text-sm text-petrol link-underline">
-            {text(l.community.label, lang)} →
+            {text(l.community.label, lang)}
           </Link>
         )}
         <p className="mt-2 flex-1 text-sm text-ink/80">{text(l.blurb, lang)}</p>
@@ -73,7 +73,7 @@ function ListingCard({ listing: l, lang, c }) {
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink/10 pt-1.5">
           <span className="text-xs text-ink/70">{c.mls}{l.mls}</span>
           <AskLink slug={l.slug} className="inline-flex min-h-[44px] items-center text-right text-sm font-medium text-petrol link-underline">
-            {text(l.ask, lang)} →
+            {text(l.ask, lang)}
           </AskLink>
         </div>
       </div>
@@ -128,7 +128,7 @@ export default function FeaturedListings({ lang }) {
       <p className="mt-7 text-sm text-ink/80">
         {c.searchLead}{' '}
         <a href={searchUrl('featured_listings')} className="font-medium text-petrol link-underline">
-          {c.searchCta} →
+          {c.searchCta}
         </a>
       </p>
     </>

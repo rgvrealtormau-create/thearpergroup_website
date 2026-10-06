@@ -51,7 +51,7 @@ export default function CityTiles({ lang }) {
                   {pre}<span className="italic">{accent}</span>
                 </h3>
                 <span className="mt-1 text-sm font-medium text-gold link-underline">
-                  {t.viewArea} →
+                  {t.viewArea}
                 </span>
               </div>
             </Link>

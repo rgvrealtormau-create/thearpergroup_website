@@ -55,7 +55,7 @@ export default async function CedarRidgeReserve({ params }) {
   };
   const breadcrumb = breadcrumbSchema([
     { name: c.breadcrumb.home, url: `${BUSINESS.url}/${lang}` },
-    { name: c.breadcrumb.communities, url: `${BUSINESS.url}/${lang}/communities` },
+    { name: c.breadcrumb.communities, url: `${BUSINESS.url}/${lang}/listings` },
     { name: 'Cedar Ridge Reserve', url: `${BUSINESS.url}/${lang}/communities/cedar-ridge-reserve` },
   ]);
 
@@ -99,7 +99,7 @@ export default async function CedarRidgeReserve({ params }) {
                 rel="noopener noreferrer"
                 className="mt-3 inline-block text-sm text-crivory/70 link-underline hover:text-crivory"
               >
-                {c.hero.directions} →
+                {c.hero.directions}
               </a>
             </div>
           </div>

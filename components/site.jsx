@@ -98,11 +98,11 @@ function CommunitiesDropdown({ lang, label }) {
           <div className="overflow-hidden rounded-sm border border-black/10 bg-cream shadow-lg">
             {/* The full Featured listings page (every listing, not just the communities). */}
             <Link
-              href={`/${lang}/communities`}
+              href={`/${lang}/listings`}
               onClick={() => setOpen(false)}
               className="block border-b border-black/10 px-4 py-3 text-sm font-medium text-petrol hover:bg-black/5 hover:text-ink"
             >
-              {ui[lang].allFeatured} →
+              {ui[lang].allFeatured}
             </Link>
             {cards.map((card) => (
               <Link
@@ -139,8 +139,8 @@ function CommunitiesAccordion({ lang, label, onNavigate }) {
       </button>
       {open && (
         <div className="mt-2 flex flex-col gap-2 border-l border-black/10 pl-4">
-          <Link href={`/${lang}/communities`} className="text-sm font-medium text-petrol" onClick={onNavigate}>
-            {ui[lang].allFeatured} →
+          <Link href={`/${lang}/listings`} className="text-sm font-medium text-petrol" onClick={onNavigate}>
+            {ui[lang].allFeatured}
           </Link>
           {cards.map((card) => (
             <Link key={card.href} href={card.href} className="text-sm text-petrol/80" onClick={onNavigate}>
@@ -164,7 +164,7 @@ export function Header({ lang }) {
         </Link>
         <nav className="hidden items-center gap-5 xl:flex">
           {items.map((it) =>
-            it.href.endsWith('/communities') ? (
+            it.href.endsWith('/listings') ? (
               <CommunitiesDropdown key={it.href} lang={lang} label={it.label} />
             ) : (
               <Link key={it.href} href={it.href} className="whitespace-nowrap text-sm text-petrol hover:text-ink">{it.label}</Link>
@@ -182,7 +182,7 @@ export function Header({ lang }) {
         <div className="border-t border-black/10 bg-cream xl:hidden">
           <div className="wrap-wide flex flex-col gap-3 py-4">
             {items.map((it) =>
-              it.href.endsWith('/communities') ? (
+              it.href.endsWith('/listings') ? (
                 <CommunitiesAccordion key={it.href} lang={lang} label={it.label} onNavigate={() => setOpen(false)} />
               ) : (
                 <Link key={it.href} href={it.href} className="text-sm text-petrol" onClick={() => setOpen(false)}>{it.label}</Link>

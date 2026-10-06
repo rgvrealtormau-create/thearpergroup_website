@@ -17,7 +17,7 @@ const STATIC_PATHS = [
   { path: 'communities/cedar-ridge-reserve', changeFrequency: 'weekly', priority: 0.8 },
   { path: 'communities/cedar-ridge-reserve/inventory', changeFrequency: 'daily', priority: 0.9 },
   { path: 'communities/vittoria', changeFrequency: 'weekly', priority: 0.8 },
-  { path: 'communities', changeFrequency: 'weekly', priority: 0.6 },
+  { path: 'listings', changeFrequency: 'weekly', priority: 0.8 },
   { path: 'resources', changeFrequency: 'weekly', priority: 0.7 },
   { path: 'buy/first-time-buyers', changeFrequency: 'monthly', priority: 0.7 },
   { path: 'reviews', changeFrequency: 'weekly', priority: 0.6 },

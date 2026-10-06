@@ -17,7 +17,7 @@ export async function generateMetadata({ params }) {
   return {
     title: c.metaTitle,
     description: c.metaDesc,
-    alternates: pageAlternates(params.lang, 'communities'),
+    alternates: pageAlternates(params.lang, 'listings'),
     openGraph: { images: [{ url: '/photos/listings/tierra-encantada.jpg', width: 1000, height: 667 }] },
   };
 }
@@ -69,11 +69,11 @@ function CommunityCard({ community: m, lang, c }) {
         <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium text-petrol">
           {m.links?.map((link) => (
             <Link key={link.path} href={`/${lang}/${link.path}`} className="py-2.5 link-underline">
-              {link.label[lang]} →
+              {link.label[lang]}
             </Link>
           ))}
           {m.ask && (
-            <AskLink slug={m.slug} className="py-2.5 link-underline">{m.ask[lang]} →</AskLink>
+            <AskLink slug={m.slug} className="py-2.5 link-underline">{m.ask[lang]}</AskLink>
           )}
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function FeaturedListingsPage({ params }) {
 
   const breadcrumb = breadcrumbSchema([
     { name: c.breadcrumbHome, url: `${BUSINESS.url}/${lang}` },
-    { name: c.eyebrow, url: `${BUSINESS.url}/${lang}/communities` },
+    { name: c.eyebrow, url: `${BUSINESS.url}/${lang}/listings` },
   ]);
 
   return (
@@ -177,11 +177,10 @@ export default function FeaturedListingsPage({ params }) {
           <ul className="border-b border-ink/15">
             {c.numbers.links.map((link) => (
               <li key={link.path} className="border-t border-ink/15">
-                <Link href={`/${lang}/${link.path}`} className="flex min-h-[56px] items-center justify-between gap-4 py-2 text-petrol hover:text-ink">
+                <Link href={`/${lang}/${link.path}`} className="flex min-h-[56px] items-center py-2 text-petrol hover:text-ink">
                   <span>
-                    {link.name} <span className="text-sm text-ink/70">· {link.note}</span>
+                    <span className="link-underline">{link.name}</span> <span className="text-sm text-ink/70">· {link.note}</span>
                   </span>
-                  <span aria-hidden="true">→</span>
                 </Link>
               </li>
             ))}
