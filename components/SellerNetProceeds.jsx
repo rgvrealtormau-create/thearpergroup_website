@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import { readHandoff, handoffHref, shareParams, applyShared, scrollToResults } from '../lib/calcHandoff';
+import ShareLink from './ShareLink';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
 // Kept in sync with the same constants in MortgageCalculator.jsx.
@@ -89,6 +91,32 @@ export default function SellerNetProceeds({ lang, copy }) {
     if (!taxTouched) setAnnualTax(String(Math.round(num(salePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [salePrice, city]);
+
+  // Everything a "share a link to these numbers" link carries (lib/calcHandoff.js).
+  const shareFields = {
+    price: { value: salePrice, set: setSalePrice, def: '300000' },
+    payoff: { value: loanPayoff, set: setLoanPayoff, def: '0' },
+    comm: { value: commissionPercent, set: setCommissionPercent, def: '6' },
+    city: { value: city, set: setCity, def: 'mcallen', oneOf: Object.keys(AREA_TAX_RATES) },
+    close: { value: closingDate, set: setClosingDate, def: defaultClosingDate(), type: 'date' },
+    btitle: { value: buyerPaysTitle, set: setBuyerPaysTitle, type: 'bool' },
+    tax: { value: taxTouched ? annualTax : '', set: (v) => { setAnnualTax(v); setTaxTouched(true); } },
+    hoaFee: { value: hoaFee, set: setHoaFee, def: '0' },
+    warranty: { value: homeWarranty, set: setHomeWarranty, def: '0' },
+    fees: { value: closingFees, set: setClosingFees, def: '350' },
+    conc: { value: sellerConcessions, set: setSellerConcessions, def: '0' },
+  };
+  const shareHref = handoffHref(lang, 'resources/seller-net-proceeds', shareParams(shareFields));
+
+  // Arriving on a shared link: fill in whatever it carried. Declared after the estimates
+  // above on purpose — effects run in order, and a carried figure must win.
+  useEffect(() => {
+    const h = readHandoff();
+    if (!Object.keys(h).length) return;
+    applyShared(h, shareFields);
+    scrollToResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const cityName = city === 'other' ? L.otherCity : cities[city]?.[lang]?.name ?? city;
   const titlePremium = useMemo(() => ownerTitlePremium(num(salePrice)), [salePrice]);
@@ -337,7 +365,7 @@ export default function SellerNetProceeds({ lang, copy }) {
       </div>
 
       {/* Results */}
-      <div className="lg:sticky lg:top-24">
+      <div id="calc-results" className="scroll-mt-24 lg:sticky lg:top-24">
         <div className="rounded-sm border border-ink/10 bg-cream p-6 shadow-sm md:p-8">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{resultLabel}</p>
           <p className="mt-3 font-display text-4xl md:text-5xl">{resultValue}</p>
@@ -361,6 +389,8 @@ export default function SellerNetProceeds({ lang, copy }) {
               <span className="font-display text-xl text-petrol">{resultValue}</span>
             </div>
           </div>
+
+          <ShareLink lang={lang} href={shareHref} className="mt-6" />
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
 

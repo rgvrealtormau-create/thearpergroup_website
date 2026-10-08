@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import ExportButton from '../lib/export/ExportButton';
-import { readHandoff, handoffHref, handoffNumber, scrollToResults } from '../lib/calcHandoff';
+import { readHandoff, handoffHref, handoffNumber, shareParams, applyShared, scrollToResults } from '../lib/calcHandoff';
 import ListingImport from './ListingImport';
+import ShareLink from './ShareLink';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
 const AREA_TAX_RATES = {
@@ -46,7 +47,7 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
   const [hoa, setHoa] = useState('0');
   const [pmi, setPmi] = useState('0');
   const [pmiTouched, setPmiTouched] = useState(false);
-  // Inputs carried in from the closing cost estimator, kept so its own fields go back with the link.
+  // Whatever the link we arrived on carried, kept so the closing cost estimator's own fields go back to it.
   const [carried, setCarried] = useState({});
 
   const downDollar = useMemo(() => Math.round((num(homePrice) * downPercent) / 100), [homePrice, downPercent]);
@@ -83,38 +84,37 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
     if (!rateTouched) setRate(String(defaultRateFor(nextTerm)));
   }
 
-  // Arriving from the closing cost estimator's "see monthly payment for these numbers" link.
+  // Everything a link to this calculator carries (lib/calcHandoff.js). The first six keys are
+  // shared with the closing cost estimator; the rest are this calculator's own.
+  const shareFields = {
+    price: { value: homePrice, set: setHomePrice },
+    dp: {
+      value: Number(downPercent.toFixed(6)),
+      set: (v) => {
+        setDownPercent(num(v));
+        setDownStr(String(round1(num(v))));
+        setDownMode('percent');
+      },
+    },
+    rate: { value: rateTouched ? rate : '', set: (v) => { setRate(v); setRateTouched(true); } },
+    city: { value: city, set: setCity, oneOf: Object.keys(AREA_TAX_RATES) },
+    tax: { value: taxTouched ? tax : '', set: (v) => { setTax(v); setTaxTouched(true); } },
+    ins: { value: insurance, set: setInsurance },
+    term: { value: term, set: setTerm, def: 30, oneOf: [30, 20, 15] },
+    hoa: { value: hoa, set: setHoa, def: '0' },
+    pmi: { value: pmiTouched ? pmi : '', set: (v) => { setPmi(v); setPmiTouched(true); } },
+  };
+
+  // Arriving on a shared link, or from the closing cost estimator's "see monthly payment
+  // for these numbers". Declared after the tax and PMI estimates above on purpose —
+  // effects run in order, and a carried figure must win.
   useEffect(() => {
     const h = readHandoff();
     if (!Object.keys(h).length) return;
-    const n = (key) => handoffNumber(h, key);
     setCarried(h);
-    if (n('price')) setHomePrice(n('price'));
-    if (n('dp')) {
-      const pct = num(n('dp'));
-      setDownPercent(pct);
-      setDownStr(String(round1(pct)));
-      setDownMode('percent');
-    }
-    const nextTerm = [30, 20, 15].includes(Number(h.term)) ? Number(h.term) : 30;
-    setTerm(nextTerm);
-    if (h.rt === '1' && n('rate')) {
-      setRate(n('rate'));
-      setRateTouched(true);
-    } else {
-      setRate(String(defaultRateFor(nextTerm)));
-    }
-    if (h.city in AREA_TAX_RATES) setCity(h.city);
-    if (n('tax')) {
-      setTax(n('tax'));
-      setTaxTouched(true);
-    }
-    if (n('ins')) setInsurance(n('ins'));
-    if (n('hoa')) setHoa(n('hoa'));
-    if (n('pmi')) {
-      setPmi(n('pmi'));
-      setPmiTouched(true);
-    }
+    applyShared(h, shareFields);
+    // No hand-typed rate in the link: today's average for the link's term.
+    if (!handoffNumber(h, 'rate')) setRate(String(defaultRateFor(shareFields.term.oneOf.find((t) => String(t) === h.term) ?? 30)));
     scrollToResults();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -147,20 +147,11 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
     : null;
   const taxNoteText = !taxTouched ? copy.taxNote.replace('{city}', cityName) : null;
 
-  // "See cash to close for these numbers": the shared inputs, plus this calculator's own.
-  const closingCostHref = handoffHref(lang, 'resources/closing-cost-estimator', {
-    ...carried,
-    price: homePrice,
-    dp: Number(downPercent.toFixed(6)),
-    rate,
-    rt: rateTouched ? 1 : '',
-    city,
-    tax: taxTouched ? tax : '',
-    ins: insurance,
-    term: term === 30 ? '' : term,
-    hoa: num(hoa) > 0 ? hoa : '',
-    pmi: pmiTouched ? pmi : '',
-  });
+  // One set of parameters, two links: this calculator (to share) and the closing cost
+  // estimator ("see cash to close for these numbers").
+  const linkParams = { ...carried, ...shareParams(shareFields) };
+  const shareHref = handoffHref(lang, 'resources/mortgage-calculator', linkParams);
+  const closingCostHref = handoffHref(lang, 'resources/closing-cost-estimator', linkParams);
 
   // Normalized payload for the shared PDF template (lib/export) — built on click only.
   function buildExportPayload() {
@@ -494,6 +485,7 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
           <a href={closingCostHref} className="mt-6 inline-block text-sm font-medium text-petrol link-underline">
             {copy.handoff}
           </a>
+          <ShareLink lang={lang} href={shareHref} className="mt-3" />
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
 

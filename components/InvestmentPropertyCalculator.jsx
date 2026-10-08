@@ -6,6 +6,8 @@ import { cities, citySlugs } from '../lib/content';
 import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import ExportButton from '../lib/export/ExportButton';
 import ListingImport from './ListingImport';
+import { readHandoff, handoffHref, shareParams, applyShared, scrollToResults } from '../lib/calcHandoff';
+import ShareLink from './ShareLink';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
 // Kept in sync with the same constants in MortgageCalculator.jsx / ClosingCostEstimator.jsx / SellerNetProceeds.jsx.
@@ -145,6 +147,45 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates, listin
     if (!closingCostsTouched) setClosingCosts(String(Math.round(num(price) * CLOSING_COST_ESTIMATE_RATE)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [price]);
+
+  // Everything a "share a link to these numbers" link carries (lib/calcHandoff.js).
+  const shareFields = {
+    price: { value: price, set: setPrice, def: '275000' },
+    dp: {
+      value: Number(downPercent.toFixed(6)),
+      def: 25,
+      set: (v) => {
+        setDownPercent(num(v));
+        setDownStr(String(round1(num(v))));
+        setDownMode('percent');
+      },
+    },
+    rate: { value: rateTouched ? rate : '', set: (v) => { setRate(v); setRateTouched(true); } },
+    term: { value: term, set: setTerm, def: 30, oneOf: [30, 20, 15] },
+    city: { value: city, set: setCity, def: 'mcallen', oneOf: Object.keys(AREA_TAX_RATES) },
+    rent: { value: monthlyRent, set: setMonthlyRent, def: '2000' },
+    vac: { value: vacancyTouched ? vacancyPercent : '', set: (v) => { setVacancyPercent(v); setVacancyTouched(true); } },
+    mgmt: { value: managementPercent, set: setManagementPercent, def: DEFAULT_MANAGEMENT },
+    cc: { value: closingCostsTouched ? closingCosts : '', set: (v) => { setClosingCosts(v); setClosingCostsTouched(true); } },
+    maint: { value: maintenancePercent, set: setMaintenancePercent, def: DEFAULT_MAINTENANCE },
+    hoa: { value: hoaMonthly, set: setHoaMonthly, def: '0' },
+    tax: { value: taxTouched ? tax : '', set: (v) => { setTax(v); setTaxTouched(true); } },
+    ins: { value: insuranceTouched ? insurance : '', set: (v) => { setInsurance(v); setInsuranceTouched(true); } },
+    rentg: { value: rentGrowthPercent, set: setRentGrowthPercent, def: DEFAULT_RENT_GROWTH },
+    appr: { value: appreciationPercent, set: setAppreciationPercent, def: DEFAULT_APPRECIATION },
+    infl: { value: expenseInflationPercent, set: setExpenseInflationPercent, def: DEFAULT_EXPENSE_INFLATION },
+  };
+  const shareHref = handoffHref(lang, 'resources/investment-property-calculator', shareParams(shareFields));
+
+  // Arriving on a shared link: fill in whatever it carried. Declared after the estimates
+  // above on purpose — effects run in order, and a carried figure must win.
+  useEffect(() => {
+    const h = readHandoff();
+    if (!Object.keys(h).length) return;
+    applyShared(h, shareFields);
+    scrollToResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // "Import from an Arper Group listing": the listing's price and area. Taxes and closing
   // costs follow from them. The rent is never filled in: that is the investor's number.
@@ -700,7 +741,7 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates, listin
       </div>
 
       {/* Results */}
-      <div className="lg:sticky lg:top-24">
+      <div id="calc-results" className="scroll-mt-24 lg:sticky lg:top-24">
         <div className="rounded-sm border border-ink/10 bg-cream p-6 shadow-sm md:p-8">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{R.title}</p>
           <p className={`mt-3 font-display text-4xl md:text-5xl ${cashFlowAnnual < 0 ? 'text-red-700' : ''}`}>
@@ -748,6 +789,8 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates, listin
             <Row label={`− ${R.annualDebtService}`} value={usd.format(annualDebtService)} />
             <Row label={R.cashFlowAnnual} value={usd.format(cashFlowAnnual)} bold />
           </div>
+
+          <ShareLink lang={lang} href={shareHref} className="mt-6" />
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
 

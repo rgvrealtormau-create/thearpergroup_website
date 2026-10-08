@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import { readHandoff, handoffHref, shareParams, applyShared, scrollToResults } from '../lib/calcHandoff';
+import ShareLink from './ShareLink';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
 // Kept in sync with the same constants in MortgageCalculator.jsx / ClosingCostEstimator.jsx / SellerNetProceeds.jsx / TitlePolicyCalculator.jsx.
@@ -149,6 +151,38 @@ export default function FlipCalculator({ lang, copy }) {
     if (!taxTouched) setTax(String(Math.round(num(purchasePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [purchasePrice]);
+
+  // Everything a "share a link to these numbers" link carries (lib/calcHandoff.js).
+  const shareFields = {
+    price: { value: purchasePrice, set: setPurchasePrice, def: '200000' },
+    rehab: { value: rehabBudget, set: setRehabBudget, def: '50000' },
+    arv: { value: arv, set: setArv, def: '310000' },
+    cont: { value: contingencyPercent, set: setContingencyPercent, def: DEFAULT_CONTINGENCY },
+    hold: { value: holdMonths, set: setHoldMonths, def: DEFAULT_HOLD_MONTHS },
+    city: { value: city, set: setCity, def: 'mcallen', oneOf: Object.keys(AREA_TAX_RATES) },
+    ltv: { value: maxLtvPercent, set: setMaxLtvPercent, def: DEFAULT_MAX_LTV },
+    rate: { value: ratePercent, set: setRatePercent, def: DEFAULT_RATE },
+    pts: { value: pointsPercent, set: setPointsPercent, def: DEFAULT_POINTS },
+    tax: { value: taxTouched ? tax : '', set: (v) => { setTax(v); setTaxTouched(true); } },
+    ins: { value: insuranceTouched ? insurance : '', set: (v) => { setInsurance(v); setInsuranceTouched(true); } },
+    util: { value: utilitiesHoa, set: setUtilitiesHoa, def: DEFAULT_UTILITIES_HOA },
+    comm: { value: commissionPercent, set: setCommissionPercent, def: DEFAULT_COMMISSION },
+    btitle: { value: buyerPaysTitle, set: setBuyerPaysTitle, type: 'bool' },
+    buy: { value: otherBuyClosingCosts, set: setOtherBuyClosingCosts, def: DEFAULT_OTHER_BUY_COSTS },
+    sell: { value: otherSellClosingCosts, set: setOtherSellClosingCosts, def: DEFAULT_OTHER_SELL_COSTS },
+    mao: { value: maoPercent, set: setMaoPercent, def: DEFAULT_MAO_PERCENT },
+  };
+  const shareHref = handoffHref(lang, 'resources/flip-calculator', shareParams(shareFields));
+
+  // Arriving on a shared link: fill in whatever it carried. Declared after the estimates
+  // above on purpose — effects run in order, and a carried figure must win.
+  useEffect(() => {
+    const h = readHandoff();
+    if (!Object.keys(h).length) return;
+    applyShared(h, shareFields);
+    scrollToResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const cityName = city === 'other' ? L.otherCity : cities[city]?.[lang]?.name ?? city;
 
@@ -508,7 +542,7 @@ export default function FlipCalculator({ lang, copy }) {
       </div>
 
       {/* Results */}
-      <div className="lg:sticky lg:top-24">
+      <div id="calc-results" className="scroll-mt-24 lg:sticky lg:top-24">
         <div className="rounded-sm border border-ink/10 bg-cream p-6 shadow-sm md:p-8">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{R.title}</p>
           <p className={`mt-3 font-display text-4xl md:text-5xl ${isLoss ? 'text-red-700' : ''}`}>
@@ -575,6 +609,8 @@ export default function FlipCalculator({ lang, copy }) {
               {(maoDiff > 0 ? M.aboveNote : M.belowNote).replace('{amount}', usd.format(Math.abs(maoDiff)))}
             </p>
           </div>
+
+          <ShareLink lang={lang} href={shareHref} className="mt-6" />
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
           <p className="mt-3 text-xs text-ink/50">{copy.dealerTaxNote}</p>

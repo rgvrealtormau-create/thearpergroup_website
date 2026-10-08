@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
-import { readHandoff, handoffHref, handoffNumber, scrollToResults } from '../lib/calcHandoff';
+import { readHandoff, handoffHref, handoffNumber, shareParams, applyShared, scrollToResults } from '../lib/calcHandoff';
 import ListingImport from './ListingImport';
+import ShareLink from './ShareLink';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
 // Kept in sync with the same constants in MortgageCalculator.jsx / SellerNetProceeds.jsx.
@@ -22,8 +23,8 @@ function taxRateFor(city) {
 // default already used in MortgageCalculator.jsx for consistency.
 const DEFAULT_ANNUAL_INSURANCE = 1800;
 
-// Starting values for the fee fields. The "see monthly payment" link only carries the ones
-// that were changed, which keeps the link short. Keys are the link's parameter names.
+// Starting values for the fee fields. Links to this calculator only carry the ones that
+// were changed, which keeps them short. Keys are the link's parameter names.
 const FEE_DEFAULTS = { orig: '1', appr: '550', lfee: '600', rec: '75', esc: '3', hoaFee: '0', survey: '0', conc: '0' };
 
 // Texas' promulgated simultaneous-issue rate for a buyer's loan policy
@@ -104,7 +105,7 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
   const [surveyFee, setSurveyFee] = useState(FEE_DEFAULTS.survey);
   const [concessions, setConcessions] = useState(FEE_DEFAULTS.conc);
   const [buyerPaysOwnerPolicy, setBuyerPaysOwnerPolicy] = useState(false);
-  // Inputs carried in from the mortgage calculator, kept so its own fields go back with the link.
+  // Whatever the link we arrived on carried, kept so the mortgage calculator's own fields go back to it.
   const [carried, setCarried] = useState({});
 
   // Annual property tax defaults to price x the area rate until it's edited by hand
@@ -114,41 +115,47 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [salePrice, city, taxTouched]);
 
-  // On load: the default closing date, or everything carried in by the mortgage
-  // calculator's "see cash to close for these numbers" link. Declared after the tax
+  // Everything a link to this calculator carries (lib/calcHandoff.js). The first six keys are
+  // shared with the mortgage calculator; the rest are this calculator's own.
+  const shareFields = {
+    price: { value: salePrice, set: setSalePrice },
+    dp: {
+      value: Number(downPercent.toFixed(6)),
+      set: (v) => {
+        setDownPercent(num(v));
+        setDownStr(String(round1(num(v))));
+        setDownMode('percent');
+      },
+    },
+    rate: { value: rateTouched ? rate : '', set: (v) => { setRate(v); setRateTouched(true); } },
+    city: { value: city, set: setCity, oneOf: Object.keys(AREA_TAX_RATES) },
+    tax: { value: taxTouched ? annualTax : '', set: (v) => { setAnnualTax(v); setTaxTouched(true); } },
+    ins: { value: homeInsurance, set: setHomeInsurance },
+    close: { value: closingDate, set: setClosingDate, def: defaultClosingDate(), type: 'date' },
+    orig: { value: originationPercent, set: setOriginationPercent, def: FEE_DEFAULTS.orig },
+    appr: { value: appraisalFee, set: setAppraisalFee, def: FEE_DEFAULTS.appr },
+    lfee: { value: lenderFees, set: setLenderFees, def: FEE_DEFAULTS.lfee },
+    rec: { value: recordingFees, set: setRecordingFees, def: FEE_DEFAULTS.rec },
+    esc: { value: escrowMonths, set: setEscrowMonths, def: FEE_DEFAULTS.esc },
+    hoaFee: { value: hoaFee, set: setHoaFee, def: FEE_DEFAULTS.hoaFee },
+    survey: { value: surveyFee, set: setSurveyFee, def: FEE_DEFAULTS.survey },
+    conc: { value: concessions, set: setConcessions, def: FEE_DEFAULTS.conc },
+    own: { value: buyerPaysOwnerPolicy, set: setBuyerPaysOwnerPolicy, type: 'bool' },
+  };
+
+  // On load: the default closing date, then whatever a shared link (or the mortgage
+  // calculator's "see cash to close for these numbers") carried. Declared after the tax
   // estimate above on purpose — effects run in order, and a carried tax bill must win.
   useEffect(() => {
     const h = readHandoff();
-    setClosingDate(/^\d{4}-\d{2}-\d{2}$/.test(h.close || '') ? h.close : defaultClosingDate());
+    setClosingDate(defaultClosingDate());
     if (!Object.keys(h).length) return;
-    const n = (key) => handoffNumber(h, key);
     setCarried(h);
-    if (n('price')) setSalePrice(n('price'));
-    if (n('dp')) {
-      const pct = num(n('dp'));
-      setDownPercent(pct);
-      setDownStr(String(round1(pct)));
-      setDownMode('percent');
-    }
-    if (n('rate')) {
-      setRate(n('rate'));
-      setRateTouched(h.rt === '1');
-    }
-    if (h.city in AREA_TAX_RATES) setCity(h.city);
-    if (n('tax')) {
-      setAnnualTax(n('tax'));
-      setTaxTouched(true);
-    }
-    if (n('ins')) setHomeInsurance(n('ins'));
-    if (n('orig')) setOriginationPercent(n('orig'));
-    if (n('appr')) setAppraisalFee(n('appr'));
-    if (n('lfee')) setLenderFees(n('lfee'));
-    if (n('rec')) setRecordingFees(n('rec'));
-    if (n('esc')) setEscrowMonths(n('esc'));
-    if (n('hoaFee')) setHoaFee(n('hoaFee'));
-    if (n('survey')) setSurveyFee(n('survey'));
-    if (n('conc')) setConcessions(n('conc'));
-    if (h.own === '1') setBuyerPaysOwnerPolicy(true);
+    applyShared(h, shareFields);
+    // No hand-typed rate, but a 15- or 20-year term from the mortgage calculator: use
+    // today's average for that term, the same figure the mortgage calculator shows.
+    if (!handoffNumber(h, 'rate') && h.term === '15') setRate(String(rates.rate15));
+    if (!handoffNumber(h, 'rate') && h.term === '20') setRate(String(Math.round(((rates.rate30 + rates.rate15) / 2) * 100) / 100));
     scrollToResults();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -185,28 +192,11 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
   const rateNoteText = rates.live && !rateTouched && num(rate) === rates.rate30 ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
   const taxNoteText = !taxTouched ? copy.taxNote.replace('{city}', cityName) : null;
 
-  // "See monthly payment for these numbers": the shared inputs, plus any fee field that was changed.
-  const changed = (key, value) => (value !== FEE_DEFAULTS[key] ? value : '');
-  const mortgageHref = handoffHref(lang, 'resources/mortgage-calculator', {
-    ...carried,
-    price: salePrice,
-    dp: Number(downPercent.toFixed(6)),
-    rate,
-    rt: rateTouched ? 1 : '',
-    city,
-    tax: taxTouched ? annualTax : '',
-    ins: homeInsurance,
-    close: closingDate && closingDate !== defaultClosingDate() ? closingDate : '',
-    orig: changed('orig', originationPercent),
-    appr: changed('appr', appraisalFee),
-    lfee: changed('lfee', lenderFees),
-    rec: changed('rec', recordingFees),
-    esc: changed('esc', escrowMonths),
-    hoaFee: changed('hoaFee', hoaFee),
-    survey: changed('survey', surveyFee),
-    conc: changed('conc', concessions),
-    own: buyerPaysOwnerPolicy ? 1 : '',
-  });
+  // One set of parameters, two links: this calculator (to share) and the mortgage
+  // calculator ("see monthly payment for these numbers").
+  const linkParams = { ...carried, ...shareParams(shareFields) };
+  const shareHref = handoffHref(lang, 'resources/closing-cost-estimator', linkParams);
+  const mortgageHref = handoffHref(lang, 'resources/mortgage-calculator', linkParams);
 
   const [showLead, setShowLead] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
@@ -599,6 +589,7 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
           <a href={mortgageHref} className="mt-6 inline-block text-sm font-medium text-petrol link-underline">
             {copy.handoff}
           </a>
+          <ShareLink lang={lang} href={shareHref} className="mt-3" />
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
 
