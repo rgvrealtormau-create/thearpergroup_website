@@ -105,10 +105,12 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Annual property tax defaults to price x the area rate until it's edited by hand
+  // (e.g. the actual bill for a specific property). Clearing the override re-estimates.
   useEffect(() => {
     if (!taxTouched) setAnnualTax(String(Math.round(num(salePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [salePrice, city]);
+  }, [salePrice, city, taxTouched]);
 
   // "Import from an Arper Group listing": the listing's price and area; taxes follow from both.
   function applyListing(listing) {
@@ -161,6 +163,7 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
       `Origination: ${usd.format(originationCost)}, Appraisal: ${usd.format(num(appraisalFee))}, Other lender fees: ${usd.format(num(lenderFees))}`,
       `Loan title policy: ${usd.format(SIMULTANEOUS_LOAN_POLICY_RATE)}, Recording: ${usd.format(num(recordingFees))}`,
       ...(buyerPaysOwnerPolicy ? [`Owner's title policy (buyer-paid): ${usd.format(ownerPolicyPremium)}`] : []),
+      `Property tax (annual): ${usd.format(num(annualTax))} (${taxTouched ? 'entered by visitor' : 'area estimate'})`,
       `Homeowners insurance: ${usd.format(num(homeInsurance))}, Prepaid interest: ${usd2.format(interestCost)}, Escrow reserve: ${usd.format(escrowReserve)}`,
       `HOA fee: ${usd.format(num(hoaFee))}, Survey: ${usd.format(num(surveyFee))}`,
       ...(num(concessions) > 0 ? [`Seller concessions: ${usd.format(num(concessions))}`] : []),
@@ -390,6 +393,34 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
                 </div>
               </label>
 
+              <div className="grid gap-1 text-sm">
+                <label htmlFor="cce-annual-tax">{L.propertyTax}</label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
+                  <input
+                    id="cce-annual-tax"
+                    inputMode="decimal"
+                    value={annualTax}
+                    onChange={(e) => {
+                      setAnnualTax(e.target.value.replace(/[^0-9.]/g, ''));
+                      setTaxTouched(true);
+                    }}
+                    className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
+                  />
+                </div>
+                {taxNoteText ? (
+                  <span className="text-xs text-ink/50">{taxNoteText}</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setTaxTouched(false)}
+                    className="justify-self-start text-xs font-medium text-petrol link-underline"
+                  >
+                    {L.taxReset}
+                  </button>
+                )}
+              </div>
+
               <label className="grid gap-1 text-sm">
                 <span>{L.escrowMonths}</span>
                 <input
@@ -463,10 +494,6 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
                 </div>
                 <span className="text-xs text-ink/50">{copy.concessionsNote}</span>
               </label>
-
-              {taxNoteText && (
-                <p className="text-xs text-ink/50 sm:col-span-2">{taxNoteText}</p>
-              )}
             </div>
           )}
         </div>
