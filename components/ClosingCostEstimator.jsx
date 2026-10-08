@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import { readHandoff, handoffHref, handoffNumber, scrollToResults } from '../lib/calcHandoff';
 import ListingImport from './ListingImport';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
@@ -20,6 +21,10 @@ function taxRateFor(city) {
 // A default first-year homeowners insurance estimate, matching the
 // default already used in MortgageCalculator.jsx for consistency.
 const DEFAULT_ANNUAL_INSURANCE = 1800;
+
+// Starting values for the fee fields. The "see monthly payment" link only carries the ones
+// that were changed, which keeps the link short. Keys are the link's parameter names.
+const FEE_DEFAULTS = { orig: '1', appr: '550', lfee: '600', rec: '75', esc: '3', hoaFee: '0', survey: '0', conc: '0' };
 
 // Texas' promulgated simultaneous-issue rate for a buyer's loan policy
 // issued alongside a seller-paid owner's policy (Rate Rule R-5): a flat
@@ -87,23 +92,20 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
   const [closingDate, setClosingDate] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const [originationPercent, setOriginationPercent] = useState('1');
-  const [appraisalFee, setAppraisalFee] = useState('550');
-  const [lenderFees, setLenderFees] = useState('600');
-  const [recordingFees, setRecordingFees] = useState('75');
+  const [originationPercent, setOriginationPercent] = useState(FEE_DEFAULTS.orig);
+  const [appraisalFee, setAppraisalFee] = useState(FEE_DEFAULTS.appr);
+  const [lenderFees, setLenderFees] = useState(FEE_DEFAULTS.lfee);
+  const [recordingFees, setRecordingFees] = useState(FEE_DEFAULTS.rec);
   const [homeInsurance, setHomeInsurance] = useState(String(DEFAULT_ANNUAL_INSURANCE));
-  const [escrowMonths, setEscrowMonths] = useState('3');
+  const [escrowMonths, setEscrowMonths] = useState(FEE_DEFAULTS.esc);
   const [annualTax, setAnnualTax] = useState(() => String(Math.round(300000 * taxRateFor('mcallen'))));
   const [taxTouched, setTaxTouched] = useState(false);
-  const [hoaFee, setHoaFee] = useState('0');
-  const [surveyFee, setSurveyFee] = useState('0');
-  const [concessions, setConcessions] = useState('0');
+  const [hoaFee, setHoaFee] = useState(FEE_DEFAULTS.hoaFee);
+  const [surveyFee, setSurveyFee] = useState(FEE_DEFAULTS.survey);
+  const [concessions, setConcessions] = useState(FEE_DEFAULTS.conc);
   const [buyerPaysOwnerPolicy, setBuyerPaysOwnerPolicy] = useState(false);
-
-  useEffect(() => {
-    if (!closingDate) setClosingDate(defaultClosingDate());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Inputs carried in from the mortgage calculator, kept so its own fields go back with the link.
+  const [carried, setCarried] = useState({});
 
   // Annual property tax defaults to price x the area rate until it's edited by hand
   // (e.g. the actual bill for a specific property). Clearing the override re-estimates.
@@ -111,6 +113,45 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
     if (!taxTouched) setAnnualTax(String(Math.round(num(salePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [salePrice, city, taxTouched]);
+
+  // On load: the default closing date, or everything carried in by the mortgage
+  // calculator's "see cash to close for these numbers" link. Declared after the tax
+  // estimate above on purpose — effects run in order, and a carried tax bill must win.
+  useEffect(() => {
+    const h = readHandoff();
+    setClosingDate(/^\d{4}-\d{2}-\d{2}$/.test(h.close || '') ? h.close : defaultClosingDate());
+    if (!Object.keys(h).length) return;
+    const n = (key) => handoffNumber(h, key);
+    setCarried(h);
+    if (n('price')) setSalePrice(n('price'));
+    if (n('dp')) {
+      const pct = num(n('dp'));
+      setDownPercent(pct);
+      setDownStr(String(round1(pct)));
+      setDownMode('percent');
+    }
+    if (n('rate')) {
+      setRate(n('rate'));
+      setRateTouched(h.rt === '1');
+    }
+    if (h.city in AREA_TAX_RATES) setCity(h.city);
+    if (n('tax')) {
+      setAnnualTax(n('tax'));
+      setTaxTouched(true);
+    }
+    if (n('ins')) setHomeInsurance(n('ins'));
+    if (n('orig')) setOriginationPercent(n('orig'));
+    if (n('appr')) setAppraisalFee(n('appr'));
+    if (n('lfee')) setLenderFees(n('lfee'));
+    if (n('rec')) setRecordingFees(n('rec'));
+    if (n('esc')) setEscrowMonths(n('esc'));
+    if (n('hoaFee')) setHoaFee(n('hoaFee'));
+    if (n('survey')) setSurveyFee(n('survey'));
+    if (n('conc')) setConcessions(n('conc'));
+    if (h.own === '1') setBuyerPaysOwnerPolicy(true);
+    scrollToResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // "Import from an Arper Group listing": the listing's price and area; taxes follow from both.
   function applyListing(listing) {
@@ -141,8 +182,31 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
   const closingCostsValue = usd.format(Math.abs(netClosingCosts));
   const totalCashToClose = downDollar + netClosingCosts;
 
-  const rateNoteText = rates.live && !rateTouched ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
+  const rateNoteText = rates.live && !rateTouched && num(rate) === rates.rate30 ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
   const taxNoteText = !taxTouched ? copy.taxNote.replace('{city}', cityName) : null;
+
+  // "See monthly payment for these numbers": the shared inputs, plus any fee field that was changed.
+  const changed = (key, value) => (value !== FEE_DEFAULTS[key] ? value : '');
+  const mortgageHref = handoffHref(lang, 'resources/mortgage-calculator', {
+    ...carried,
+    price: salePrice,
+    dp: Number(downPercent.toFixed(6)),
+    rate,
+    rt: rateTouched ? 1 : '',
+    city,
+    tax: taxTouched ? annualTax : '',
+    ins: homeInsurance,
+    close: closingDate && closingDate !== defaultClosingDate() ? closingDate : '',
+    orig: changed('orig', originationPercent),
+    appr: changed('appr', appraisalFee),
+    lfee: changed('lfee', lenderFees),
+    rec: changed('rec', recordingFees),
+    esc: changed('esc', escrowMonths),
+    hoaFee: changed('hoaFee', hoaFee),
+    survey: changed('survey', surveyFee),
+    conc: changed('conc', concessions),
+    own: buyerPaysOwnerPolicy ? 1 : '',
+  });
 
   const [showLead, setShowLead] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
@@ -500,7 +564,7 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
       </div>
 
       {/* Results */}
-      <div className="lg:sticky lg:top-24">
+      <div id="calc-results" className="scroll-mt-24 lg:sticky lg:top-24">
         <div className="rounded-sm border border-ink/10 bg-cream p-6 shadow-sm md:p-8">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{R.title}</p>
           <p className="mt-3 font-display text-4xl md:text-5xl">{usd.format(totalCashToClose)}</p>
@@ -531,6 +595,10 @@ export default function ClosingCostEstimator({ lang, copy, rates, listings = [] 
               <span className="font-display text-xl text-petrol">{usd.format(totalCashToClose)}</span>
             </div>
           </div>
+
+          <a href={mortgageHref} className="mt-6 inline-block text-sm font-medium text-petrol link-underline">
+            {copy.handoff}
+          </a>
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
 

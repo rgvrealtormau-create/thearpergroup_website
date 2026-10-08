@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import ExportButton from '../lib/export/ExportButton';
+import { readHandoff, handoffHref, handoffNumber, scrollToResults } from '../lib/calcHandoff';
 import ListingImport from './ListingImport';
 
 // Typical combined property-tax rate by area (annual, as a fraction of price).
@@ -45,20 +46,17 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
   const [hoa, setHoa] = useState('0');
   const [pmi, setPmi] = useState('0');
   const [pmiTouched, setPmiTouched] = useState(false);
+  // Inputs carried in from the closing cost estimator, kept so its own fields go back with the link.
+  const [carried, setCarried] = useState({});
 
   const downDollar = useMemo(() => Math.round((num(homePrice) * downPercent) / 100), [homePrice, downPercent]);
 
   // Property tax defaults to home price x the area rate, until the field is edited by hand.
-  useEffect(() => {
-    setTax(String(Math.round(num(homePrice) * taxRateFor(city))));
-    setTaxTouched(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [city]);
-
+  // Picking a different city in the dropdown goes back to the estimate (see its onChange).
   useEffect(() => {
     if (!taxTouched) setTax(String(Math.round(num(homePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [homePrice]);
+  }, [homePrice, city, taxTouched]);
 
   // PMI auto-applies under 20% down, until the field is edited by hand.
   useEffect(() => {
@@ -76,13 +74,50 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
     if (listing.citySlug) setCity(listing.citySlug);
   }
 
+  function defaultRateFor(t) {
+    return t === 30 ? rates.rate30 : t === 15 ? rates.rate15 : Math.round(((rates.rate30 + rates.rate15) / 2) * 100) / 100;
+  }
+
   function handleTermChange(nextTerm) {
     setTerm(nextTerm);
-    if (!rateTouched) {
-      const nextRate = nextTerm === 30 ? rates.rate30 : nextTerm === 15 ? rates.rate15 : Math.round(((rates.rate30 + rates.rate15) / 2) * 100) / 100;
-      setRate(String(nextRate));
-    }
+    if (!rateTouched) setRate(String(defaultRateFor(nextTerm)));
   }
+
+  // Arriving from the closing cost estimator's "see monthly payment for these numbers" link.
+  useEffect(() => {
+    const h = readHandoff();
+    if (!Object.keys(h).length) return;
+    const n = (key) => handoffNumber(h, key);
+    setCarried(h);
+    if (n('price')) setHomePrice(n('price'));
+    if (n('dp')) {
+      const pct = num(n('dp'));
+      setDownPercent(pct);
+      setDownStr(String(round1(pct)));
+      setDownMode('percent');
+    }
+    const nextTerm = [30, 20, 15].includes(Number(h.term)) ? Number(h.term) : 30;
+    setTerm(nextTerm);
+    if (h.rt === '1' && n('rate')) {
+      setRate(n('rate'));
+      setRateTouched(true);
+    } else {
+      setRate(String(defaultRateFor(nextTerm)));
+    }
+    if (h.city in AREA_TAX_RATES) setCity(h.city);
+    if (n('tax')) {
+      setTax(n('tax'));
+      setTaxTouched(true);
+    }
+    if (n('ins')) setInsurance(n('ins'));
+    if (n('hoa')) setHoa(n('hoa'));
+    if (n('pmi')) {
+      setPmi(n('pmi'));
+      setPmiTouched(true);
+    }
+    scrollToResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Amortization math
   const loanAmount = Math.max(num(homePrice) - downDollar, 0);
@@ -111,6 +146,21 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
     ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang))
     : null;
   const taxNoteText = !taxTouched ? copy.taxNote.replace('{city}', cityName) : null;
+
+  // "See cash to close for these numbers": the shared inputs, plus this calculator's own.
+  const closingCostHref = handoffHref(lang, 'resources/closing-cost-estimator', {
+    ...carried,
+    price: homePrice,
+    dp: Number(downPercent.toFixed(6)),
+    rate,
+    rt: rateTouched ? 1 : '',
+    city,
+    tax: taxTouched ? tax : '',
+    ins: insurance,
+    term: term === 30 ? '' : term,
+    hoa: num(hoa) > 0 ? hoa : '',
+    pmi: pmiTouched ? pmi : '',
+  });
 
   // Normalized payload for the shared PDF template (lib/export) — built on click only.
   function buildExportPayload() {
@@ -325,7 +375,10 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
           <span>{L.city}</span>
           <select
             value={city}
-            onChange={(e) => setCity(e.target.value)}
+            onChange={(e) => {
+              setCity(e.target.value);
+              setTaxTouched(false);
+            }}
             className="w-full rounded-sm border border-black/20 bg-white px-3 py-2"
           >
             {citySlugs.map((slug) => (
@@ -411,7 +464,7 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
       </div>
 
       {/* Results */}
-      <div className="lg:sticky lg:top-24">
+      <div id="calc-results" className="scroll-mt-24 lg:sticky lg:top-24">
         <div className="rounded-sm border border-ink/10 bg-cream p-6 shadow-sm md:p-8">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{R.title}</p>
           <p className="mt-3 font-display text-4xl md:text-5xl">
@@ -437,6 +490,10 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
               <div className="mt-1 font-medium text-ink">{usd.format(totalInterest)}</div>
             </div>
           </div>
+
+          <a href={closingCostHref} className="mt-6 inline-block text-sm font-medium text-petrol link-underline">
+            {copy.handoff}
+          </a>
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
 
