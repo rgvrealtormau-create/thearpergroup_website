@@ -59,6 +59,12 @@ has them ("Property taxes" in the listing's Website section there), otherwise th
 estimate. A listing card's "Estimate the payment" link opens the same way. The calculator on
 its own still opens at 20% down.
 
+The thank-you screen is a menu, so it is still there when the visitor comes back from one of
+its links: the fact that they signed in is remembered in the browser tab (sessionStorage: a
+first name and which links to show, gone when the tab closes), so the browser's Back button
+returns to it, and the calculator shows "Back to your open house options" when it was opened
+from there (`&from=open-house`). "Sign in another guest" forgets it.
+
 A sign-in whose name starts with `zz-test` is for checking the page: it is kept in the
 portal and emailed to the team, but not added to the sheet or Brivity. Rules in
 `lib/openHouse.js`, emails in `lib/openHouseEmail.js`, checks in `tests/open-house.test.mjs`

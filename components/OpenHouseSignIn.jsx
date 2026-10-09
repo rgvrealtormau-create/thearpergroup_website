@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { WEB3FORMS_ACCESS_KEY, BUSINESS } from '../lib/site';
 
@@ -16,6 +16,12 @@ import { WEB3FORMS_ACCESS_KEY, BUSINESS } from '../lib/site';
 // After signing in, the visitor gets what they came for: the payment calculator opened on
 // this home, the listing, a search for similar homes, and, for someone who owns a home, what
 // theirs is worth. "Sign in another guest" clears the form for the next person on the same phone.
+//
+// That screen is a menu, so it has to still be there when the visitor comes back from one of
+// its links. The fact that they signed in is remembered in the browser tab (sessionStorage:
+// their first name and which links to show, nothing else, gone when the tab is closed), and
+// the screen is shown again on return: the browser's Back button, or "Back to your open house
+// options" on the calculator, which the calculator link asks for with &from=open-house.
 
 const COPY = {
   en: {
@@ -84,6 +90,25 @@ const COPY = {
   },
 };
 
+// What is remembered of a sign-in, per listing, for as long as the tab stays open.
+const REMEMBER_HOURS = 12;
+const memoryKey = (listingId) => `open-house-signed-in:${listingId}`;
+function recall(listingId) {
+  try {
+    const kept = JSON.parse(window.sessionStorage.getItem(memoryKey(listingId)) || 'null');
+    if (!kept || typeof kept.first !== 'string' || !(Date.now() - kept.at < REMEMBER_HOURS * 3600 * 1000)) return null;
+    return { first: kept.first.slice(0, 40), email: kept.email === true, hasAgent: kept.hasAgent === true, owns: kept.owns === true };
+  } catch { return null; } // private browsing, or storage switched off: the page works without it
+}
+function remember(listingId, done) {
+  try {
+    if (done) window.sessionStorage.setItem(memoryKey(listingId), JSON.stringify({ ...done, at: Date.now() }));
+    else window.sessionStorage.removeItem(memoryKey(listingId));
+  } catch { /* see recall */ }
+}
+// Before the first paint in the browser, so a visitor coming back never sees the empty form flash by.
+const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 const digits = (v) => {
   let d = String(v || '').replace(/[^0-9]/g, '');
   if (d.length === 11 && d.startsWith('1')) d = d.slice(1);
@@ -123,6 +148,12 @@ export default function OpenHouseSignIn({ lang, listing }) {
   const topRef = useRef(null);
   const scrollUp = () => requestAnimationFrame(() => topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   const home = [listing.title, listing.cityName].filter(Boolean).join(', ');
+
+  // Coming back from the calculator, the listing, the home value page or the home search.
+  useBeforePaint(() => {
+    const kept = recall(listing.id);
+    if (kept) setDone(kept);
+  }, [listing.id]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -180,11 +211,14 @@ export default function OpenHouseSignIn({ lang, listing }) {
 
     setBusy(false);
     if (!ok) { setProblem(reason); return; }
-    setDone({ first: name.split(/\s+/)[0], email: Boolean(email), hasAgent: hasAgent === 'yes', owns: ownsHome === 'yes' || ownsHome === 'sell' });
+    const signedIn = { first: name.split(/\s+/)[0], email: Boolean(email), hasAgent: hasAgent === 'yes', owns: ownsHome === 'yes' || ownsHome === 'sell' };
+    setDone(signedIn);
+    remember(listing.id, signedIn);
     scrollUp();
   }
 
   function reset() {
+    remember(listing.id, null);
     setDone(null);
     setHasAgent(null);
     setTimeline(null);
@@ -209,7 +243,7 @@ export default function OpenHouseSignIn({ lang, listing }) {
         <div className="mt-6 flex flex-col gap-3">
           {listing.calcHref && (
             <div>
-              <Link href={listing.calcHref} className={`block ${primary}`}>{c.calc}</Link>
+              <Link href={`${listing.calcHref}&from=open-house`} className={`block ${primary}`}>{c.calc}</Link>
               <p className="mt-1.5 text-center text-xs text-ink/60">{c.calcNote}</p>
             </div>
           )}
