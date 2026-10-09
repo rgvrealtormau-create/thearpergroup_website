@@ -11,14 +11,14 @@ const COPY = {
   en: {
     eyebrow: 'Cedar Ridge Reserve',
     title: 'Full lot inventory',
-    lede: 'Phase 1 is sold. Explore 69 Phase 2 lots in pre-sale at $10.50 per square foot, with current sizes and pricing from BuildHere.',
+    lede: 'Phase 1 is sold. Explore the 67 Phase 2 lots available in pre-sale at $10.50 per square foot, with current sizes and pricing from BuildHere.',
     back: 'Back to community',
     unavailable: 'Inventory is temporarily unavailable. Please check back shortly.',
   },
   es: {
     eyebrow: 'Cedar Ridge Reserve',
     title: 'Inventario completo de lotes',
-    lede: 'La Fase 1 está vendida. Explora 69 lotes de la Fase 2 en preventa a $10.50 por pie cuadrado, con tamaños y precios actuales de BuildHere.',
+    lede: 'La Fase 1 está vendida. Explora los 67 lotes disponibles de la Fase 2 en preventa a $10.50 por pie cuadrado, con tamaños y precios actuales de BuildHere.',
     back: 'Volver a la comunidad',
     unavailable: 'El inventario no está disponible temporalmente. Intenta de nuevo en unos momentos.',
   },
