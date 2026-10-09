@@ -35,6 +35,35 @@ mortgage-calculator forms: it appends a row to the sphere nurture Google Sheet a
 Brivity's lead-parsing address, in parallel, best-effort (failures are logged, never block
 the form's Web3Forms confirmation). See `lib/googleSheets.js` and `lib/brivity.js`.
 
+## Open house sign-in
+A sign at an open house carries a QR code for `/open-house/<listing id>` (the id is the
+listing's id in the Arper portal; the portal's listing page shows the code to print). That
+address answers in the language of the visitor's phone and opens
+`/{lang}/open-house/<listing id>`: a name, a mobile number, an optional email and three
+one-tap questions. It exists for exactly the listings the portal shows on the website.
+
+`app/api/open-house/route.js` sends one sign-in to:
+- the Arper portal, which keeps it against the listing (the portal's `open_house_sign_in`
+  function, called with the same two hosting settings as the listings feed). The agents see
+  the day's visitors on the listing's page there, and the listing's "Open House" activity,
+  which the seller's weekly report is drafted from, carries the count;
+- the sphere nurture sheet and Brivity, unless the visitor says they already work with an
+  agent;
+- an email to the team with a "Text them" link (it opens the agent's own Messages app;
+  nothing texts a visitor automatically), and, when the visitor left an email, a thank-you
+  with the listing and its payment calculator.
+
+After signing in the visitor is offered the mortgage calculator opened on that listing
+(`?listing=<id>`): its price, 3.5% down, and its own yearly property taxes when the portal
+has them ("Property taxes" in the listing's Website section there), otherwise the area
+estimate. A listing card's "Estimate the payment" link opens the same way. The calculator on
+its own still opens at 20% down.
+
+A sign-in whose name starts with `zz-test` is for checking the page: it is kept in the
+portal and emailed to the team, but not added to the sheet or Brivity. Rules in
+`lib/openHouse.js`, emails in `lib/openHouseEmail.js`, checks in `tests/open-house.test.mjs`
+(`node --test tests/*.test.mjs`).
+
 ## Content
 All copy lives in `lib/content.js` (EN + ES). Guardrails and the full site
 architecture are documented separately in the architecture map.

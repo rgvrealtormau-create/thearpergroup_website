@@ -17,6 +17,25 @@ const AREA_TAX_RATES = {
 
 const PMI_ANNUAL_RATE = 0.0055;
 
+// A link from a listing (?listing=<id>: its card, or its open house sign-in) opens the
+// calculator on that listing with this down payment: the FHA minimum, which is what most
+// first-time buyers ask about first. The calculator on its own still opens at 20%.
+const LISTING_DOWN_PERCENT = 3.5;
+
+// Words for the two things a listing can bring that the page's own copy has no line for.
+const LISTING_COPY = {
+  en: {
+    taxNote: 'The yearly property taxes we have on file for this listing. A homestead exemption and next year’s appraised value will change them; confirm with the county appraisal district.',
+    taxStamp: 'From the listing',
+    downNote: 'Down payment starts at 3.5% (the FHA minimum).',
+  },
+  es: {
+    taxNote: 'Los impuestos prediales anuales que tenemos registrados para esta propiedad. Una exención de homestead y el valor catastral del próximo año los cambian; confírmalo con el distrito de valuación del condado.',
+    taxStamp: 'De la propiedad',
+    downNote: 'El enganche empieza en 3.5% (el mínimo de FHA).',
+  },
+};
+
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
 
@@ -43,6 +62,11 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [tax, setTax] = useState(() => String(Math.round(300000 * taxRateFor('mcallen'))));
   const [taxTouched, setTaxTouched] = useState(false);
+  // The imported listing's own yearly taxes, when the portal has them. They take the place of
+  // the area estimate until the tax field is edited by hand or another area is picked.
+  const [listingTax, setListingTax] = useState(null);
+  // True once a listing link (?listing=<id>) has set the down payment, for the note under the import box.
+  const [listingDown, setListingDown] = useState(false);
   const [insurance, setInsurance] = useState('1800');
   const [hoa, setHoa] = useState('0');
   const [pmi, setPmi] = useState('0');
@@ -52,12 +76,13 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
 
   const downDollar = useMemo(() => Math.round((num(homePrice) * downPercent) / 100), [homePrice, downPercent]);
 
-  // Property tax defaults to home price x the area rate, until the field is edited by hand.
-  // Picking a different city in the dropdown goes back to the estimate (see its onChange).
+  // Property tax defaults to the imported listing's own taxes when it has them, otherwise to
+  // home price x the area rate, until the field is edited by hand. Picking a different city
+  // in the dropdown goes back to the estimate (see its onChange).
   useEffect(() => {
-    if (!taxTouched) setTax(String(Math.round(num(homePrice) * taxRateFor(city))));
+    if (!taxTouched) setTax(String(listingTax ?? Math.round(num(homePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [homePrice, city, taxTouched]);
+  }, [homePrice, city, taxTouched, listingTax]);
 
   // PMI auto-applies under 20% down, until the field is edited by hand.
   useEffect(() => {
@@ -68,11 +93,22 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [homePrice, downDollar, downPercent, pmiTouched]);
 
-  // "Import from an Arper Group listing": the listing's price and area; taxes follow from both.
-  function applyListing(listing) {
+  // "Import from an Arper Group listing": the listing's price, area and, when the portal has
+  // them, its yearly taxes (otherwise the taxes follow from the price and the area).
+  // `arrived` is true when the page was opened on a listing's own link, which also starts
+  // the down payment at LISTING_DOWN_PERCENT. Picking a listing from the list by hand leaves
+  // the down payment as the visitor set it.
+  function applyListing(listing, { arrived = false } = {}) {
     setHomePrice(String(listing.price));
     setTaxTouched(false);
+    setListingTax(listing.taxes ?? null);
     if (listing.citySlug) setCity(listing.citySlug);
+    if (arrived) {
+      setDownPercent(LISTING_DOWN_PERCENT);
+      setDownStr(String(LISTING_DOWN_PERCENT));
+      setDownMode('percent');
+      setListingDown(true);
+    }
   }
 
   function defaultRateFor(t) {
@@ -98,7 +134,7 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
     },
     rate: { value: rateTouched ? rate : '', set: (v) => { setRate(v); setRateTouched(true); } },
     city: { value: city, set: setCity, oneOf: Object.keys(AREA_TAX_RATES) },
-    tax: { value: taxTouched ? tax : '', set: (v) => { setTax(v); setTaxTouched(true); } },
+    tax: { value: taxTouched ? tax : listingTax != null ? String(listingTax) : '', set: (v) => { setTax(v); setTaxTouched(true); } },
     ins: { value: insurance, set: setInsurance },
     term: { value: term, set: setTerm, def: 30, oneOf: [30, 20, 15] },
     hoa: { value: hoa, set: setHoa, def: '0' },
@@ -145,7 +181,9 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
   const rateNoteText = rates.live && !rateTouched && term !== 20
     ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang))
     : null;
-  const taxNoteText = !taxTouched ? copy.taxNote.replace('{city}', cityName) : null;
+  const LC = LISTING_COPY[lang] ?? LISTING_COPY.en;
+  const fromListing = !taxTouched && listingTax != null;
+  const taxNoteText = taxTouched ? null : fromListing ? LC.taxNote : copy.taxNote.replace('{city}', cityName);
 
   // One set of parameters, two links: this calculator (to share) and the closing cost
   // estimator ("see cash to close for these numbers").
@@ -196,6 +234,7 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
         {
           label: X.propertyTax,
           value: taxTouched ? X.taxEntered
+            : fromListing ? LC.taxStamp
             : X.taxDefault.replace('{city}', cityName).replace('{pct}', round1(taxRateFor(city) * 100)),
         },
       ],
@@ -264,7 +303,10 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
     <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:items-start">
       {/* Inputs */}
       <div className="grid gap-6">
-        <ListingImport lang={lang} listings={listings} onImport={applyListing} />
+        <ListingImport
+          lang={lang} listings={listings} onImport={applyListing} usesTaxes
+          note={listingDown && downPercent === LISTING_DOWN_PERCENT ? LC.downNote : null}
+        />
         <label className="grid gap-1 text-sm">
           <span>{L.homePrice}</span>
           <div className="relative">
@@ -369,6 +411,7 @@ export default function MortgageCalculator({ lang, copy, rates, listings = [] })
             onChange={(e) => {
               setCity(e.target.value);
               setTaxTouched(false);
+              setListingTax(null);
             }}
             className="w-full rounded-sm border border-black/20 bg-white px-3 py-2"
           >
