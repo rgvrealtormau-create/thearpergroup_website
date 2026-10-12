@@ -54,7 +54,7 @@ export async function POST(request) {
   const [sheet, brivity, thanks] = await Promise.allSettled([
     nurture && fresh ? appendLeadRow(sheetRow(signIn, home, submittedAt)) : Promise.resolve(null),
     nurture && fresh
-      ? sendBrivityEmail({ firstName, lastName: rest.join(' '), email: signIn.email, phone: phonePretty(signIn.phone), note: leadNote(signIn, home) })
+      ? sendBrivityEmail({ firstName, lastName: rest.join(' '), email: signIn.email, phone: phonePretty(signIn.phone), note: leadNote(signIn, home), type: 'Buyer', source: `Open house — ${home}`, propertyAddress: card?.geo ? card.geo.split(',')[0].trim() : undefined, propertyCity: city || undefined, propertyPrice: card && !card.priceSuffix ? card.price : undefined })
       : Promise.resolve(null),
     signIn.email && fresh ? sendOpenHouseThanks({ signIn, card, home }) : Promise.resolve(null),
   ]);

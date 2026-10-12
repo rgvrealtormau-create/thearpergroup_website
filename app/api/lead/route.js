@@ -58,6 +58,8 @@ async function featuredListingLabel(slug) {
   return inquiryOptions('en', cards).find((option) => option.slug === slug)?.labelEn || null;
 }
 
+const SELLER_FORMS = new Set(['home_valuation', 'seller_net_proceeds_calculator']);
+
 function splitName(name) {
   const trimmed = (name || '').trim().replace(/\s+/g, ' ');
   if (!trimmed) return { firstName: '', lastName: '' };
@@ -145,7 +147,12 @@ export async function POST(request) {
 
   const [sheetResult, emailResult, welcomeResult, alertResult] = await Promise.allSettled([
     appendLeadRow(sheetRow),
-    sendBrivityEmail({ firstName, lastName, email, phone, note: brivityEmailNote }),
+    sendBrivityEmail({
+      firstName, lastName, email, phone, note: brivityEmailNote,
+      type: SELLER_FORMS.has(formType) ? 'Seller' : 'Buyer',
+      source: meta.label.replace('Website —', 'thearpergroup.com —'),
+      propertyAddress: formType === 'home_valuation' ? address : undefined,
+    }),
     wantsWelcome ? sendVittoriaWelcomeEmail({ to: email, name, lang, referralAgent: referral }) : Promise.resolve(null),
     isVittoria
       ? sendVittoriaLeadAlert({ name, phone, email, lang, source: meta.label, referralAgent: referral, buyerAgent, detail, submittedAt })
