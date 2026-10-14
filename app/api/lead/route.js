@@ -150,7 +150,11 @@ export async function POST(request) {
     sendBrivityEmail({
       firstName, lastName, email, phone, note: brivityEmailNote,
       type: SELLER_FORMS.has(formType) ? 'Seller' : 'Buyer',
-      source: meta.label.replace('Website —', 'thearpergroup.com —'),
+      // A Vittoria buyer credited to a model-home agent has already seen the home in person,
+      // so Brivity gets a distinct source and can start the "already visited" plan.
+      source: isVittoria && referral
+        ? 'thearpergroup.com — Vittoria (visited model home)'
+        : meta.label.replace('Website —', 'thearpergroup.com —'),
       propertyAddress: formType === 'home_valuation' ? address : undefined,
     }),
     wantsWelcome ? sendVittoriaWelcomeEmail({ to: email, name, lang, referralAgent: referral }) : Promise.resolve(null),
