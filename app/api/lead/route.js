@@ -44,6 +44,8 @@ const FORM_META = {
   cedar_ridge_reserve: { label: 'Website — Cedar Ridge Reserve', note: 'Cedar Ridge Reserve inquiry' },
   vittoria: { label: 'Website — Vittoria', note: 'Vittoria townhomes inquiry' },
   vittoria_model_home: { label: 'Website — Vittoria model home', note: 'Vittoria model home check-in' },
+  vittoria_brochure: { label: 'Website — Vittoria brochure', note: 'Vittoria brochure download' },
+  vittoria_agent: { label: 'Website — Vittoria co-op agent', note: 'Agent downloaded the Vittoria brochure for a client' },
   featured_listings: { label: 'Website — Featured Listings', note: 'Featured listings inquiry' },
 };
 
@@ -124,7 +126,7 @@ export async function POST(request) {
   // Home Purchase/Sale Date, Birthday, Kids, Work, Interests, Last Contacted, Notes, Synced, ListingID
   const sheetRow = [
     name,
-    'Active Lead',
+    formType === 'vittoria_agent' ? 'Referral Partner' : 'Active Lead',
     howIKnowThem,
     phone || '',
     email || '',
@@ -142,19 +144,26 @@ export async function POST(request) {
   ];
 
   // Vittoria buyers who leave an email get an automatic welcome email with the page link.
-  const isVittoria = formType === 'vittoria' || formType === 'vittoria_model_home';
-  const wantsWelcome = isVittoria && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
+  const isVittoria = ['vittoria', 'vittoria_model_home', 'vittoria_brochure', 'vittoria_agent'].includes(formType);
+  // An agent downloading the brochure for a client is a co-op contact, not a buyer: no
+  // buyer welcome email, no lead type, and a source no buyer plan starts on.
+  const isCoopAgent = formType === 'vittoria_agent';
+  const wantsWelcome = isVittoria && !isCoopAgent && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
 
   const [sheetResult, emailResult, welcomeResult, alertResult] = await Promise.allSettled([
     appendLeadRow(sheetRow),
     sendBrivityEmail({
       firstName, lastName, email, phone, note: brivityEmailNote,
-      type: SELLER_FORMS.has(formType) ? 'Seller' : 'Buyer',
+      type: isCoopAgent ? null : SELLER_FORMS.has(formType) ? 'Seller' : 'Buyer',
       // A Vittoria buyer credited to a model-home agent has already seen the home in person,
       // so Brivity gets a distinct source and can start the "already visited" plan.
-      source: isVittoria && referral
-        ? 'thearpergroup.com — Vittoria (visited model home)'
-        : meta.label.replace('Website —', 'thearpergroup.com —'),
+      source: isCoopAgent
+        ? 'thearpergroup.com — Vittoria co-op agent'
+        : isVittoria && referral
+          ? 'thearpergroup.com — Vittoria (visited model home)'
+          : isVittoria
+            ? 'thearpergroup.com — Vittoria'
+            : meta.label.replace('Website —', 'thearpergroup.com —'),
       propertyAddress: formType === 'home_valuation' ? address : undefined,
     }),
     wantsWelcome ? sendVittoriaWelcomeEmail({ to: email, name, lang, referralAgent: referral }) : Promise.resolve(null),

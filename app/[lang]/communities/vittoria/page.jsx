@@ -4,12 +4,12 @@ import { vittoria } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema, parseVittoriaLotParams } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 import VittoriaLeadForm from '../../../../components/VittoriaLeadForm';
+import VittoriaBrochureButton from '../../../../components/VittoriaBrochureButton';
 import VittoriaMapEmbed from '../../../../components/VittoriaMapEmbed';
 import VittoriaPaymentEstimator from '../../../../components/VittoriaPaymentEstimator';
 import { getFhaRate } from '../../../../lib/fred';
 
 const PHOTO = (name) => `/photos/vittoria/${name}-hd.jpg`;
-const BOOKLET = '/downloads/vittoria-townhomes-booklet.pdf';
 
 // Renderings are extracted from the builder's print booklet at source resolution.
 const SIZES = {
@@ -27,25 +27,6 @@ export async function generateMetadata({ params }) {
     alternates: pageAlternates(params.lang, 'communities/vittoria'),
     openGraph: { images: [{ url: PHOTO('exterior'), width: 816, height: 757 }] },
   };
-}
-
-function DownloadButton({ label, tone = 'light' }) {
-  const cls =
-    tone === 'light'
-      ? 'bg-gold text-ink hover:bg-cream'
-      : 'bg-petrol text-cream hover:bg-ink';
-  return (
-    <a
-      href={BOOKLET}
-      download
-      className={`inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-medium ${cls}`}
-    >
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-        <path d="M7 1v8m0 0L3.5 5.5M7 9l3.5-3.5M1.5 12.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      {label}
-    </a>
-  );
 }
 
 export default async function VittoriaPage({ params, searchParams }) {
@@ -83,7 +64,7 @@ export default async function VittoriaPage({ params, searchParams }) {
               ))}
             </ul>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <DownloadButton label={c.downloadCta} />
+              <VittoriaBrochureButton lang={lang} label={c.downloadCta} />
               <a href="#contact" className="inline-flex items-center justify-center border border-cream/50 px-6 py-3 text-sm text-cream hover:bg-cream hover:text-petrol">
                 {c.tourCta}
               </a>
@@ -201,7 +182,7 @@ export default async function VittoriaPage({ params, searchParams }) {
             <h2 className="font-display text-3xl">{c.bookletTitle}</h2>
             <p className="mt-3 text-cream/80">{c.bookletBody}</p>
           </div>
-          <DownloadButton label={c.downloadCta} />
+          <VittoriaBrochureButton lang={lang} label={c.downloadCta} />
         </div>
       </section>
 
