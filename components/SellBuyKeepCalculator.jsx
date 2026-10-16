@@ -278,9 +278,9 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
       key: 'buy',
       unavailable: maxLine == null ? P.unavailable : null,
       asks: [
-        ...(interestOnly && helocRate === '' ? [{ key: 'helocRate', label: P.ask.helocRate, hint: P.ask.rateHint, kind: 'percent', value: helocRate, set: setHelocRate }] : []),
-        ...(!interestOnly && helocPayment === '' ? [{ key: 'helocPayment', label: L.helocPayment, hint: P.ask.rateHint, kind: 'money', value: helocPayment, set: setHelocPayment }] : []),
-        ...(overlapMonths === '' ? [{ key: 'overlap', label: P.ask.overlap, kind: 'plain', value: overlapMonths, set: setOverlapMonths }] : []),
+        ...(interestOnly ? [{ key: 'helocRate', label: P.ask.helocRate, hint: P.ask.rateHint, kind: 'percent', value: helocRate, set: setHelocRate }] : []),
+        ...(!interestOnly ? [{ key: 'helocPayment', label: L.helocPayment, hint: P.ask.rateHint, kind: 'money', value: helocPayment, set: setHelocPayment }] : []),
+        { key: 'overlap', label: P.ask.overlap, kind: 'plain', value: overlapMonths, set: setOverlapMonths },
       ],
       pocket: {
         value: buyFromPocket,
@@ -297,8 +297,8 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
     {
       key: 'keep',
       asks: [
-        ...(rent === '' ? [{ key: 'rent', label: P.ask.rent, kind: 'money', value: rent, set: setRent }] : []),
-        ...(keepHeloc && interestOnly && helocRate === '' ? [{ key: 'helocRate', label: P.ask.helocRate, hint: P.ask.rateHint, kind: 'percent', value: helocRate, set: setHelocRate }] : []),
+        { key: 'rent', label: P.ask.rent, kind: 'money', value: rent, set: setRent },
+        ...(keepHeloc && interestOnly ? [{ key: 'helocRate', label: P.ask.helocRate, hint: P.ask.rateHint, kind: 'percent', value: helocRate, set: setHelocRate }] : []),
       ],
       pocket: {
         value: keepFromPocket,
@@ -318,7 +318,8 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
       lenderView: true,
     },
   ];
-  const cardReady = (card) => !card.unavailable && !(card.asks && card.asks.length);
+  // The card's questions stay on screen; its answers appear once every question has a number.
+  const cardReady = (card) => !card.unavailable && (card.asks || []).every((a) => a.value !== '');
 
   const cityName = (slug) => (slug === 'other' ? L.otherCity : cities[slug]?.[lang]?.name ?? slug);
   const rateNoteText = rates.live && !rateTouched && term !== 20 ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
@@ -327,7 +328,7 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
   const pathName = (k) => copy.tabs[k];
   const cardValues = (card) => [card.pocket.value, card.move.value, card.monthly.value].map((v) => usd.format(v));
   const cardCell = (card, i) => (cardReady(card) ? cardValues(card)[i] : copy.export.notAvailable);
-  const cardStatus = (card) => card.unavailable || (card.asks?.length ? card.asks.map((a) => a.label).join(' ') : null);
+  const cardStatus = (card) => card.unavailable || (cardReady(card) ? null : (card.asks || []).filter((a) => a.value === '').map((a) => a.label).join(' '));
 
   // Normalized payload for the shared PDF template (lib/export) — built on click only.
   // The headline names the move, not a winning path.
@@ -754,21 +755,26 @@ function ResultCard({ card, title, summary, P, ready, lenderView }) {
 
       {card.unavailable ? (
         <p className="mt-5 rounded-sm bg-paper p-4 text-sm text-ink/80">{card.unavailable}</p>
-      ) : !ready ? (
-        <div className="mt-5 grid gap-4 rounded-sm bg-paper p-4">
-          {card.asks.map((a) => (
-            a.kind === 'money' ? <Money key={a.key} label={a.label} value={a.value} onChange={a.set} note={a.hint} />
-              : a.kind === 'percent' ? <Percent key={a.key} label={a.label} value={a.value} onChange={a.set} note={a.hint} />
-              : <Plain key={a.key} label={a.label} value={a.value} onChange={a.set} note={a.hint} />
-          ))}
-        </div>
       ) : (
+        <>
+          {card.asks?.length ? (
+            <div className="mt-5 grid gap-4 rounded-sm bg-paper p-4">
+              {card.asks.map((a) => (
+                a.kind === 'money' ? <Money key={a.key} label={a.label} value={a.value} onChange={a.set} note={a.hint} />
+                  : a.kind === 'percent' ? <Percent key={a.key} label={a.label} value={a.value} onChange={a.set} note={a.hint} />
+                  : <Plain key={a.key} label={a.label} value={a.value} onChange={a.set} note={a.hint} />
+              ))}
+            </div>
+          ) : null}
+          {ready && (
         <div className="mt-5 grid gap-5">
           <Answer label={P.q.pocket} value={card.pocket.value} line={card.pocket.line} />
           <Answer label={P.q.move} value={card.move.value} line={card.move.line} />
           <Answer label={P.q.monthly} value={card.monthly.value} line={card.monthly.line} suffix={P.perMonth} />
           {card.extra && <Answer label={card.extra.label} value={card.extra.value} line={card.extra.line} />}
         </div>
+          )}
+        </>
       )}
 
       {ready && (
