@@ -1,12 +1,12 @@
-import { sellBuyKeep, investmentProperty } from '../../../../lib/content';
+import { sellBuyKeep, investmentProperty, resources } from '../../../../lib/content';
 import { getMortgageRates } from '../../../../lib/fred';
+import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
+import JsonLd from '../../../../components/JsonLd';
 import SellBuyKeepCalculator from '../../../../components/SellBuyKeepCalculator';
 
-// Review build: noindexed, left out of app/sitemap.js and the
-// /resources cards until Mauricio signs off. FAQ/breadcrumb schema land in Pass 3.
 export async function generateMetadata({ params }) {
   const c = sellBuyKeep[params.lang];
-  return { title: c.metaTitle, description: c.metaDesc, robots: { index: false, follow: false } };
+  return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang, 'resources/sell-buy-or-keep-calculator') };
 }
 
 export default async function SellBuyKeepPage({ params }) {
@@ -14,8 +14,25 @@ export default async function SellBuyKeepPage({ params }) {
   const c = sellBuyKeep[lang];
   const rates = await getMortgageRates();
 
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: c.faqs.map((f) => ({
+      '@type': 'Question', name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
+  };
+
+  const breadcrumb = breadcrumbSchema([
+    { name: lang === 'es' ? 'Inicio' : 'Home', url: `${BUSINESS.url}/${lang}` },
+    { name: resources[lang].title, url: `${BUSINESS.url}/${lang}/resources` },
+    { name: c.title, url: `${BUSINESS.url}/${lang}/resources/sell-buy-or-keep-calculator` },
+  ]);
+
   return (
     <>
+      <JsonLd data={faqSchema} />
+      <JsonLd data={breadcrumb} />
       <section className="bg-petrol text-cream">
         <div className="wrap py-16 md:py-20">
           <p className="text-sm text-cream/70">{c.kicker}</p>

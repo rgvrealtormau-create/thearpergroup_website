@@ -7,6 +7,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
+import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import ExportButton from '../lib/export/ExportButton';
 import {
   taxRateFor, monthlyPI, defaultClosingDate, sellerNetProceeds, buyerClosingCosts, rentalNoi,
   landlordInsuranceDefault, insuranceNoteFor, vacancyDefaultFor, DEFAULT_MANAGEMENT, DEFAULT_MAINTENANCE,
@@ -278,10 +280,148 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
   const cityName = (slug) => (slug === 'other' ? L.otherCity : cities[slug]?.[lang]?.name ?? slug);
   const rateNoteText = rates.live && !rateTouched && term !== 20 ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
 
+
+  const pathName = (k) => copy.tabs[k];
+  const cardCell = (card, i) => (card.unavailable || card.needs ? copy.export.notAvailable : card.rows[i]);
+  const cardStatus = (card) => card.unavailable || card.needs || null;
+
+  // Normalized payload for the shared PDF template (lib/export) — built on click only.
+  // The headline names the move, not a winning path.
+  function buildExportPayload() {
+    const X = copy.export;
+    const rowLabels = [copy.rows.cashAtClosing, copy.rows.monthlyDuring, copy.rows.totalMove, copy.rows.ongoing];
+    return {
+      calculator: 'sell-buy-or-keep',
+      lang,
+      url: `${BUSINESS.url}/${lang}/resources/sell-buy-or-keep-calculator`,
+      title: copy.title,
+      subtitle: copy.lede,
+      label: X.label,
+      headline: {
+        label: X.headlineLabel,
+        value: `${usd.format(num(salePrice))} → ${usd.format(price)}`,
+        sub: X.headlineSub,
+      },
+      inputs: [
+        { label: L.salePrice, value: usd.format(num(salePrice)) },
+        { label: L.payoff, value: usd.format(num(payoff)) },
+        { label: L.piti, value: usd.format(num(piti)) },
+        { label: L.city, value: cityName(city) },
+        { label: L.homeEquityLoan, value: hasHomeEquityLoan ? L.yes : L.no },
+        { label: L.nextPrice, value: usd.format(price) },
+        { label: L.downPayment, value: `${usd.format(downDollar)} · ${round1(num(downPercent))}%` },
+        { label: L.rate, value: `${num(rate)}% · ${term} ${L.yr}` },
+        { label: L.nextCity, value: cityName(nextCity) },
+        { label: L.commission, value: `${round1(num(commissionPercent))}%` },
+        { label: L.savings, value: usd.format(savingsAmt) },
+        ...(helocRate !== '' ? [{ label: L.helocRate, value: `${num(helocRate)}%` }] : []),
+        ...(overlapMonths !== '' ? [{ label: L.overlapMonths, value: String(num(overlapMonths)) }] : []),
+        ...(rent !== '' ? [{ label: L.rent, value: usd.format(num(rent)) }] : []),
+        { label: L.horizon, value: `${years} · ${L.appreciation}: ${round1(num(appreciation))}%` },
+      ],
+      results: [
+        { label: X.netProceeds, value: usd.format(net), emphasis: true },
+        { label: X.buyerClosing, value: usd.format(buyerClosing) },
+        { label: X.nextPayment, value: usd.format(nextPayment) },
+        { label: X.maxLine, value: maxLine == null ? X.none : usd.format(maxLine) },
+        ...(maxLine != null ? [{ label: X.draw, value: usd.format(draw), indent: true }] : []),
+        ...(rent !== '' ? [
+          { label: X.noi, value: usd.format(rental.noi) },
+          { label: X.cashFlow, value: usd.format(keep.cashFlowMonthly) },
+          { label: X.lenderView, value: usd.format(lender.adjusted) },
+        ] : []),
+      ],
+      tables: [{
+        title: X.tableTitle,
+        columns: [X.itemHeader, pathName('sell'), pathName('buy'), pathName('keep')],
+        rows: rowLabels.map((label, i) => [label, ...cards.map((card) => cardCell(card, i))]),
+      }],
+      notes: [
+        ...cards.flatMap((card) => {
+          const status = cardStatus(card);
+          const lines = status ? [status] : card.notes;
+          return lines.map((n) => X.pathNote.replace('{path}', pathName(card.key)).replace('{note}', n));
+        }),
+        ...(rent !== '' ? [copy.lenderView.caveat] : []),
+        ...copy.things.map((t) => `${t.h}: ${t.p}`),
+        `${copy.contingent.title}: ${copy.contingent.body}`,
+      ],
+      dataStamps: [
+        {
+          label: X.rate,
+          value: rateTouched ? X.rateEntered
+            : rates.live ? X.rateLive.replace('{date}', formatDate(rates.asOfDate, lang))
+            : X.rateDefault,
+        },
+        { label: X.propertyTax, value: X.taxDefault.replace('{city}', cityName(nextCity)).replace('{pct}', round1(taxRateFor(nextCity) * 100)) },
+        { label: X.helocRate, value: helocRate === '' ? X.helocBlank : X.helocEntered },
+      ],
+      disclaimers: [copy.disclaimer],
+    };
+  }
+
+  const [showLead, setShowLead] = useState(false);
+  const [leadSent, setLeadSent] = useState(false);
+  const [leadBusy, setLeadBusy] = useState(false);
+  const [leadFailed, setLeadFailed] = useState(false);
+
+  async function onLeadSubmit(e) {
+    e.preventDefault();
+    setLeadBusy(true);
+    setLeadFailed(false);
+    const data = new FormData(e.target);
+    const line = (card) => {
+      const status = cardStatus(card);
+      if (status) return `${pathName(card.key)}: ${status}`;
+      return `${pathName(card.key)}: cash at next closing ${card.rows[0]}, monthly during move ${card.rows[1]}, total move cost ${card.rows[2]}, ongoing monthly ${card.rows[3]}`;
+    };
+    const message = [
+      `Current home: ${usd.format(num(salePrice))} value, ${usd.format(num(payoff))} payoff, ${usd.format(num(piti))}/mo PITI, ${cityName(city)}${hasHomeEquityLoan ? ', has a home equity loan' : ''}`,
+      `Next home: ${usd.format(price)}, ${round1(num(downPercent))}% down, ${num(rate)}% / ${term} yr, ${cityName(nextCity)}`,
+      `Estimated net proceeds: ${usd.format(net)}; savings: ${usd.format(savingsAmt)}`,
+      `Texas HELOC limit: ${maxLine == null ? 'likely not available' : usd.format(maxLine)}${helocRate !== '' ? ` at ${num(helocRate)}%` : ''}${overlapMonths !== '' ? `, ${num(overlapMonths)} months overlap` : ''}`,
+      ...(rent !== '' ? [`Rent if kept: ${usd.format(num(rent))}/mo, cash flow ${usd.format(keep.cashFlowMonthly)}/mo`] : []),
+      ...cards.map(line),
+    ].join('\n');
+    if (!data.get('botcheck')) {
+      fetch('/api/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formType: 'sell_buy_keep_calculator',
+          lang,
+          name: data.get('name'),
+          phone: data.get('phone'),
+          detail: message,
+        }),
+      }).catch(() => {});
+    }
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
+          name: data.get('name'),
+          phone: data.get('phone'),
+          botcheck: data.get('botcheck'),
+          subject: 'Sell first / buy first / keep it calculator lead',
+          from_name: 'The Arper Group website',
+          page: 'Sell first, buy first, or keep it calculator',
+          message,
+        }),
+      });
+      const result = await res.json();
+      if (result.success) setLeadSent(true);
+      else setLeadFailed(true);
+    } catch {
+      setLeadFailed(true);
+    } finally {
+      setLeadBusy(false);
+    }
+  }
   return (
     <div className="grid gap-12">
-      <p className="rounded-sm border border-gold/60 bg-gold/15 p-4 text-sm text-ink/80">{copy.mockBanner}</p>
-
       {/* Shared inputs */}
       <div className="grid gap-10 md:grid-cols-2">
         <Group title={copy.sections.current}>
@@ -511,9 +651,48 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
           ))}
         </div>
         <p className="mt-6 max-w-3xl text-xs text-ink/50">{copy.disclaimer}</p>
-        <div className="mt-6 max-w-md">
-          <button type="button" disabled className="w-full rounded-sm bg-gold px-5 py-3 text-sm font-medium text-ink opacity-70">{copy.leadCta}</button>
-          <p className="mt-2 text-xs text-ink/50">{copy.leadPending}</p>
+        <div className="mt-6 grid max-w-md gap-6">
+          <ExportButton lang={lang} getPayload={buildExportPayload} />
+
+          <div className="border-t border-ink/10 pt-6">
+            {!showLead && !leadSent && (
+              <button
+                type="button"
+                onClick={() => setShowLead(true)}
+                className="w-full rounded-sm bg-gold px-5 py-3 text-sm font-medium text-ink hover:bg-[#c9a96b]"
+              >
+                {copy.lead.cta}
+              </button>
+            )}
+
+            {showLead && !leadSent && (
+              <form onSubmit={onLeadSubmit} className="grid gap-3">
+                <label className="grid gap-1 text-sm">
+                  <span>{copy.lead.name}</span>
+                  <input required name="name" className="rounded-sm border border-black/20 bg-white px-3 py-2" />
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span>{copy.lead.phone}</span>
+                  <input required name="phone" type="tel" className="rounded-sm border border-black/20 bg-white px-3 py-2" />
+                </label>
+                <input type="checkbox" name="botcheck" className="hidden" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+                <p className="text-xs text-ink/50">{copy.lead.consent}</p>
+                <button
+                  disabled={leadBusy}
+                  className="justify-self-start rounded-sm bg-petrol px-5 py-2.5 text-sm font-medium text-cream hover:bg-[#243b49] disabled:opacity-60"
+                >
+                  {leadBusy ? copy.lead.sending : copy.lead.submit}
+                </button>
+                {leadFailed && <p className="text-sm text-red-700">{copy.lead.error}</p>}
+              </form>
+            )}
+
+            {leadSent && (
+              <div className="rounded-sm border border-forest/30 bg-paper p-4 text-sm text-forest">
+                {copy.lead.success}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
