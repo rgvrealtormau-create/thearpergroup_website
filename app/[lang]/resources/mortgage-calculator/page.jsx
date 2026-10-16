@@ -3,6 +3,7 @@ import { getMortgageRates } from '../../../../lib/fred';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 import MortgageCalculator from '../../../../components/MortgageCalculator';
+import { getImportableListings } from '../../../../lib/listings';
 
 export async function generateMetadata({ params }) {
   const c = mortgageCalc[params.lang];
@@ -12,7 +13,7 @@ export async function generateMetadata({ params }) {
 export default async function MortgageCalculatorPage({ params }) {
   const lang = params.lang;
   const c = mortgageCalc[lang];
-  const rates = await getMortgageRates();
+  const [rates, listings] = await Promise.all([getMortgageRates(), getImportableListings()]);
 
   const faqSchema = {
     '@context': 'https://schema.org',
@@ -42,7 +43,7 @@ export default async function MortgageCalculatorPage({ params }) {
       </section>
 
       <section className="wrap py-16 md:py-20">
-        <MortgageCalculator lang={lang} copy={c} rates={rates} />
+        <MortgageCalculator lang={lang} copy={c} rates={rates} listings={listings} />
       </section>
 
       <section className="bg-cream">

@@ -3,6 +3,7 @@ import { getMortgageRates } from '../../../../lib/fred';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 import ClosingCostEstimator from '../../../../components/ClosingCostEstimator';
+import { getImportableListings } from '../../../../lib/listings';
 
 export async function generateMetadata({ params }) {
   const c = closingCost[params.lang];
@@ -12,7 +13,7 @@ export async function generateMetadata({ params }) {
 export default async function ClosingCostEstimatorPage({ params }) {
   const lang = params.lang;
   const c = closingCost[lang];
-  const rates = await getMortgageRates();
+  const [rates, listings] = await Promise.all([getMortgageRates(), getImportableListings()]);
 
   const faqSchema = {
     '@context': 'https://schema.org',
@@ -42,7 +43,7 @@ export default async function ClosingCostEstimatorPage({ params }) {
       </section>
 
       <section className="wrap py-16 md:py-20">
-        <ClosingCostEstimator lang={lang} copy={c} rates={rates} />
+        <ClosingCostEstimator lang={lang} copy={c} rates={rates} listings={listings} />
       </section>
 
       <section className="bg-cream">

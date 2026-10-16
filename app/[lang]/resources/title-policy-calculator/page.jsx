@@ -2,13 +2,15 @@ import { titlePolicy, resources } from '../../../../lib/content';
 import { BUSINESS, pageAlternates, breadcrumbSchema } from '../../../../lib/site';
 import JsonLd from '../../../../components/JsonLd';
 import TitlePolicyCalculator from '../../../../components/TitlePolicyCalculator';
+import { getImportableListings } from '../../../../lib/listings';
 
 export async function generateMetadata({ params }) {
   const c = titlePolicy[params.lang];
   return { title: c.metaTitle, description: c.metaDesc, alternates: pageAlternates(params.lang, 'resources/title-policy-calculator') };
 }
 
-export default function TitlePolicyCalculatorPage({ params }) {
+export default async function TitlePolicyCalculatorPage({ params }) {
+  const listings = await getImportableListings();
   const lang = params.lang;
   const c = titlePolicy[lang];
 
@@ -40,7 +42,7 @@ export default function TitlePolicyCalculatorPage({ params }) {
       </section>
 
       <section className="wrap py-16 md:py-20">
-        <TitlePolicyCalculator lang={lang} copy={c} />
+        <TitlePolicyCalculator lang={lang} copy={c} listings={listings} />
       </section>
 
       <section className="bg-cream">

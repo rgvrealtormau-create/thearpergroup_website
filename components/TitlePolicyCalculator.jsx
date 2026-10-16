@@ -1,8 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import { titleBasicPremium as basicPremium, loanPolicyPremium } from '../lib/calc';
+import { readHandoff, handoffHref, shareParams, applyShared, scrollToResults } from '../lib/calcHandoff';
+import ShareLink from './ShareLink';
+import ListingImport from './ListingImport';
 
 // Rate Rule R-16 (amendment of the area & boundary / survey exception):
 // always $0 on a Loan Policy, but 5% of the Owner's Policy basic premium
@@ -27,7 +30,7 @@ function round1(n) {
   return Math.round(n * 10) / 10;
 }
 
-export default function TitlePolicyCalculator({ lang, copy }) {
+export default function TitlePolicyCalculator({ lang, copy, listings = [] }) {
   const L = copy.labels;
   const R = copy.results;
 
@@ -36,6 +39,31 @@ export default function TitlePolicyCalculator({ lang, copy }) {
   const [downStr, setDownStr] = useState('20');
   const [downMode, setDownMode] = useState('percent');
   const [amendArea, setAmendArea] = useState(false);
+
+  // Everything a "share a link to these numbers" link carries (lib/calcHandoff.js).
+  const shareFields = {
+    price: { value: salePrice, set: setSalePrice, def: '300000' },
+    dp: {
+      value: Number(downPercent.toFixed(6)),
+      def: 20,
+      set: (v) => {
+        setDownPercent(num(v));
+        setDownStr(String(round1(num(v))));
+        setDownMode('percent');
+      },
+    },
+    area: { value: amendArea, set: setAmendArea, type: 'bool' },
+  };
+  const shareHref = handoffHref(lang, 'resources/title-policy-calculator', shareParams(shareFields));
+
+  // Arriving on a shared link: fill in whatever it carried.
+  useEffect(() => {
+    const h = readHandoff();
+    if (!Object.keys(h).length) return;
+    applyShared(h, shareFields);
+    scrollToResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const downDollar = useMemo(() => Math.round((num(salePrice) * downPercent) / 100), [salePrice, downPercent]);
   const loanAmount = Math.max(num(salePrice) - downDollar, 0);
@@ -111,6 +139,7 @@ export default function TitlePolicyCalculator({ lang, copy }) {
     <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:items-start">
       {/* Inputs */}
       <div className="grid gap-6">
+        <ListingImport lang={lang} listings={listings} onImport={(listing) => setSalePrice(String(listing.price))} usesArea={false} />
         <label className="grid gap-1 text-sm">
           <span>{L.salePrice}</span>
           <div className="relative">
@@ -190,7 +219,7 @@ export default function TitlePolicyCalculator({ lang, copy }) {
       </div>
 
       {/* Results */}
-      <div className="lg:sticky lg:top-24">
+      <div id="calc-results" className="scroll-mt-24 lg:sticky lg:top-24">
         <div className="rounded-sm border border-ink/10 bg-cream p-6 shadow-sm md:p-8">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{R.title}</p>
           <p className="mt-3 font-display text-4xl md:text-5xl">{usd.format(totalPremiums)}</p>
@@ -221,6 +250,8 @@ export default function TitlePolicyCalculator({ lang, copy }) {
               <span className="font-display text-xl text-petrol">{usd.format(totalPremiums)}</span>
             </div>
           </div>
+
+          <ShareLink lang={lang} href={shareHref} className="mt-6" />
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
 

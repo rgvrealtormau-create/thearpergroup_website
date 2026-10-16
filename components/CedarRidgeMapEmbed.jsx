@@ -80,7 +80,7 @@ export default function CedarRidgeMapEmbed({ baseUrl, embedTitle, inventoryPath,
           href={fullInventoryHref}
           className="inline-flex items-center justify-center rounded-sm bg-crbrass px-6 py-3 text-sm font-semibold text-crnavy transition-colors hover:bg-[#c49a5e]"
         >
-          {copy.inventory} →
+          {copy.inventory}
         </a>
       </div>
     </div>

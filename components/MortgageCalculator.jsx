@@ -1,10 +1,35 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { cities, citySlugs } from '../lib/content';
 import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import ExportButton from '../lib/export/ExportButton';
-import { taxRateFor, monthlyPI, PMI_ANNUAL_RATE } from '../lib/calc';
+import { AREA_TAX_RATES, taxRateFor, monthlyPI, PMI_ANNUAL_RATE } from '../lib/calc';
+import { readHandoff, handoffHref, handoffNumber, shareParams, applyShared, scrollToResults } from '../lib/calcHandoff';
+import ListingImport from './ListingImport';
+import ShareLink from './ShareLink';
+
+// A link from a listing (?listing=<id>: its card, or its open house sign-in) opens the
+// calculator on that listing with this down payment: the FHA minimum, which is what most
+// first-time buyers ask about first. The calculator on its own still opens at 20%.
+const LISTING_DOWN_PERCENT = 3.5;
+
+// Words for the two things a listing can bring that the page's own copy has no line for.
+const LISTING_COPY = {
+  en: {
+    taxNote: 'The yearly property taxes we have on file for this listing. A homestead exemption and next year’s appraised value will change them; confirm with the county appraisal district.',
+    taxStamp: 'From the listing',
+    downNote: 'Down payment starts at 3.5% (the FHA minimum).',
+    backToOpenHouse: 'Back to your open house options',
+  },
+  es: {
+    taxNote: 'Los impuestos prediales anuales que tenemos registrados para esta propiedad. Una exención de homestead y el valor catastral del próximo año los cambian; confírmalo con el distrito de valuación del condado.',
+    taxStamp: 'De la propiedad',
+    downNote: 'El enganche empieza en 3.5% (el mínimo de FHA).',
+    backToOpenHouse: 'Volver a las opciones de la casa abierta',
+  },
+};
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
@@ -13,7 +38,7 @@ function num(v) {
   return parseFloat(v) || 0;
 }
 
-export default function MortgageCalculator({ lang, copy, rates }) {
+export default function MortgageCalculator({ lang, copy, rates, listings = [] }) {
   const L = copy.labels;
   const R = copy.results;
 
@@ -28,24 +53,37 @@ export default function MortgageCalculator({ lang, copy, rates }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [tax, setTax] = useState(() => String(Math.round(300000 * taxRateFor('mcallen'))));
   const [taxTouched, setTaxTouched] = useState(false);
+  // The imported listing's own yearly taxes, when the portal has them. They take the place of
+  // the area estimate until the tax field is edited by hand or another area is picked.
+  const [listingTax, setListingTax] = useState(null);
+  // True once a listing link (?listing=<id>) has set the down payment, for the note under the import box.
+  const [listingDown, setListingDown] = useState(false);
+  // Set when the visitor came from an open house's thank-you screen (?from=open-house): the
+  // way back to it, where the home value and similar homes links are waiting.
+  const [openHouseHref, setOpenHouseHref] = useState(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const id = q.get('listing') || '';
+    if (q.get('from') === 'open-house' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      setOpenHouseHref(`/${lang}/open-house/${id.toLowerCase()}`);
+    }
+  }, [lang]);
   const [insurance, setInsurance] = useState('1800');
   const [hoa, setHoa] = useState('0');
   const [pmi, setPmi] = useState('0');
   const [pmiTouched, setPmiTouched] = useState(false);
+  // Whatever the link we arrived on carried, kept so the closing cost estimator's own fields go back to it.
+  const [carried, setCarried] = useState({});
 
   const downDollar = useMemo(() => Math.round((num(homePrice) * downPercent) / 100), [homePrice, downPercent]);
 
-  // Property tax defaults to home price x the area rate, until the field is edited by hand.
+  // Property tax defaults to the imported listing's own taxes when it has them, otherwise to
+  // home price x the area rate, until the field is edited by hand. Picking a different city
+  // in the dropdown goes back to the estimate (see its onChange).
   useEffect(() => {
-    setTax(String(Math.round(num(homePrice) * taxRateFor(city))));
-    setTaxTouched(false);
+    if (!taxTouched) setTax(String(listingTax ?? Math.round(num(homePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [city]);
-
-  useEffect(() => {
-    if (!taxTouched) setTax(String(Math.round(num(homePrice) * taxRateFor(city))));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [homePrice]);
+  }, [homePrice, city, taxTouched, listingTax]);
 
   // PMI auto-applies under 20% down, until the field is edited by hand.
   useEffect(() => {
@@ -56,13 +94,67 @@ export default function MortgageCalculator({ lang, copy, rates }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [homePrice, downDollar, downPercent, pmiTouched]);
 
-  function handleTermChange(nextTerm) {
-    setTerm(nextTerm);
-    if (!rateTouched) {
-      const nextRate = nextTerm === 30 ? rates.rate30 : nextTerm === 15 ? rates.rate15 : Math.round(((rates.rate30 + rates.rate15) / 2) * 100) / 100;
-      setRate(String(nextRate));
+  // "Import from an Arper Group listing": the listing's price, area and, when the portal has
+  // them, its yearly taxes (otherwise the taxes follow from the price and the area).
+  // `arrived` is true when the page was opened on a listing's own link, which also starts
+  // the down payment at LISTING_DOWN_PERCENT. Picking a listing from the list by hand leaves
+  // the down payment as the visitor set it.
+  function applyListing(listing, { arrived = false } = {}) {
+    setHomePrice(String(listing.price));
+    setTaxTouched(false);
+    setListingTax(listing.taxes ?? null);
+    if (listing.citySlug) setCity(listing.citySlug);
+    if (arrived) {
+      setDownPercent(LISTING_DOWN_PERCENT);
+      setDownStr(String(LISTING_DOWN_PERCENT));
+      setDownMode('percent');
+      setListingDown(true);
     }
   }
+
+  function defaultRateFor(t) {
+    return t === 30 ? rates.rate30 : t === 15 ? rates.rate15 : Math.round(((rates.rate30 + rates.rate15) / 2) * 100) / 100;
+  }
+
+  function handleTermChange(nextTerm) {
+    setTerm(nextTerm);
+    if (!rateTouched) setRate(String(defaultRateFor(nextTerm)));
+  }
+
+  // Everything a link to this calculator carries (lib/calcHandoff.js). The first six keys are
+  // shared with the closing cost estimator; the rest are this calculator's own.
+  const shareFields = {
+    price: { value: homePrice, set: setHomePrice },
+    dp: {
+      value: Number(downPercent.toFixed(6)),
+      set: (v) => {
+        setDownPercent(num(v));
+        setDownStr(String(round1(num(v))));
+        setDownMode('percent');
+      },
+    },
+    rate: { value: rateTouched ? rate : '', set: (v) => { setRate(v); setRateTouched(true); } },
+    city: { value: city, set: setCity, oneOf: Object.keys(AREA_TAX_RATES) },
+    tax: { value: taxTouched ? tax : listingTax != null ? String(listingTax) : '', set: (v) => { setTax(v); setTaxTouched(true); } },
+    ins: { value: insurance, set: setInsurance },
+    term: { value: term, set: setTerm, def: 30, oneOf: [30, 20, 15] },
+    hoa: { value: hoa, set: setHoa, def: '0' },
+    pmi: { value: pmiTouched ? pmi : '', set: (v) => { setPmi(v); setPmiTouched(true); } },
+  };
+
+  // Arriving on a shared link, or from the closing cost estimator's "see monthly payment
+  // for these numbers". Declared after the tax and PMI estimates above on purpose —
+  // effects run in order, and a carried figure must win.
+  useEffect(() => {
+    const h = readHandoff();
+    if (!Object.keys(h).length) return;
+    setCarried(h);
+    applyShared(h, shareFields);
+    // No hand-typed rate in the link: today's average for the link's term.
+    if (!handoffNumber(h, 'rate')) setRate(String(defaultRateFor(shareFields.term.oneOf.find((t) => String(t) === h.term) ?? 30)));
+    scrollToResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Amortization math
   const loanAmount = Math.max(num(homePrice) - downDollar, 0);
@@ -80,7 +172,15 @@ export default function MortgageCalculator({ lang, copy, rates }) {
   const rateNoteText = rates.live && !rateTouched && term !== 20
     ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang))
     : null;
-  const taxNoteText = !taxTouched ? copy.taxNote.replace('{city}', cityName) : null;
+  const LC = LISTING_COPY[lang] ?? LISTING_COPY.en;
+  const fromListing = !taxTouched && listingTax != null;
+  const taxNoteText = taxTouched ? null : fromListing ? LC.taxNote : copy.taxNote.replace('{city}', cityName);
+
+  // One set of parameters, two links: this calculator (to share) and the closing cost
+  // estimator ("see cash to close for these numbers").
+  const linkParams = { ...carried, ...shareParams(shareFields) };
+  const shareHref = handoffHref(lang, 'resources/mortgage-calculator', linkParams);
+  const closingCostHref = handoffHref(lang, 'resources/closing-cost-estimator', linkParams);
 
   // Normalized payload for the shared PDF template (lib/export) — built on click only.
   function buildExportPayload() {
@@ -125,12 +225,20 @@ export default function MortgageCalculator({ lang, copy, rates }) {
         {
           label: X.propertyTax,
           value: taxTouched ? X.taxEntered
+            : fromListing ? LC.taxStamp
             : X.taxDefault.replace('{city}', cityName).replace('{pct}', round1(taxRateFor(city) * 100)),
         },
       ],
       disclaimers: [copy.disclaimer],
     };
   }
+
+  const backToOpenHouse = openHouseHref && (
+    <Link href={openHouseHref} className="inline-flex min-h-[44px] items-center text-sm font-medium text-petrol link-underline">
+      <svg viewBox="0 0 16 16" className="mr-1.5 h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9.5 3.5 5 8l4.5 4.5" /></svg>
+      {LC.backToOpenHouse}
+    </Link>
+  );
 
   const [showLead, setShowLead] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
@@ -193,6 +301,11 @@ export default function MortgageCalculator({ lang, copy, rates }) {
     <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:items-start">
       {/* Inputs */}
       <div className="grid gap-6">
+        {backToOpenHouse}
+        <ListingImport
+          lang={lang} listings={listings} onImport={applyListing} usesTaxes
+          note={listingDown && downPercent === LISTING_DOWN_PERCENT ? LC.downNote : null}
+        />
         <label className="grid gap-1 text-sm">
           <span>{L.homePrice}</span>
           <div className="relative">
@@ -294,7 +407,11 @@ export default function MortgageCalculator({ lang, copy, rates }) {
           <span>{L.city}</span>
           <select
             value={city}
-            onChange={(e) => setCity(e.target.value)}
+            onChange={(e) => {
+              setCity(e.target.value);
+              setTaxTouched(false);
+              setListingTax(null);
+            }}
             className="w-full rounded-sm border border-black/20 bg-white px-3 py-2"
           >
             {citySlugs.map((slug) => (
@@ -380,7 +497,7 @@ export default function MortgageCalculator({ lang, copy, rates }) {
       </div>
 
       {/* Results */}
-      <div className="lg:sticky lg:top-24">
+      <div id="calc-results" className="scroll-mt-24 lg:sticky lg:top-24">
         <div className="rounded-sm border border-ink/10 bg-cream p-6 shadow-sm md:p-8">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{R.title}</p>
           <p className="mt-3 font-display text-4xl md:text-5xl">
@@ -406,6 +523,13 @@ export default function MortgageCalculator({ lang, copy, rates }) {
               <div className="mt-1 font-medium text-ink">{usd.format(totalInterest)}</div>
             </div>
           </div>
+
+          {backToOpenHouse && <div className="mt-4">{backToOpenHouse}</div>}
+
+          <a href={closingCostHref} className="mt-6 inline-block text-sm font-medium text-petrol link-underline">
+            {copy.handoff}
+          </a>
+          <ShareLink lang={lang} href={shareHref} className="mt-3" />
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
 

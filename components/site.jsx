@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BUSINESS, SOCIAL, searchUrl, otherLang, swapLangInPath, WEB3FORMS_ACCESS_KEY } from '../lib/site';
+import { BUSINESS, SOCIAL, searchUrl, portalUrl, otherLang, swapLangInPath, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import { nav, ui, footer as footerCopy, communitiesHub } from '../lib/content';
 import { Logo, LogoLockup, AllianceLogo } from './Logo';
 
@@ -18,6 +18,19 @@ export function SearchButton({ lang, campaign = 'nav', className = '', variant =
       className={`inline-flex items-center justify-center rounded-sm px-4 py-2 text-sm font-medium transition-colors ${variants[variant]} ${className}`}
     >
       {ui[lang].search}
+    </a>
+  );
+}
+
+// The way in for clients and agents: a quieter button than the search call to action.
+export function PortalButton({ lang, className = '' }) {
+  return (
+    <a
+      href={portalUrl(lang)}
+      aria-label={ui[lang].portalLong}
+      className={`inline-flex items-center justify-center rounded-sm border border-petrol px-4 py-2 text-sm font-medium text-petrol transition-colors hover:bg-petrol hover:text-cream ${className}`}
+    >
+      {ui[lang].portal}
     </a>
   );
 }
@@ -55,9 +68,8 @@ function ChevronIcon({ open }) {
   );
 }
 
-// Desktop: click-opened dropdown listing each community, so "Communities"
-// goes straight into a subdivision's page instead of a middle hub page
-// the visitor has to pick from.
+// Desktop: click-opened dropdown. The first entry opens the Featured listings
+// page (every listing); the rest go straight into each community's own page.
 function CommunitiesDropdown({ lang, label }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -84,6 +96,14 @@ function CommunitiesDropdown({ lang, label }) {
       {open && (
         <div className="absolute left-0 top-full w-56 pt-2">
           <div className="overflow-hidden rounded-sm border border-black/10 bg-cream shadow-lg">
+            {/* The full Featured listings page (every listing, not just the communities). */}
+            <Link
+              href={`/${lang}/listings`}
+              onClick={() => setOpen(false)}
+              className="block border-b border-black/10 px-4 py-3 text-sm font-medium text-petrol hover:bg-black/5 hover:text-ink"
+            >
+              {ui[lang].allFeatured}
+            </Link>
             {cards.map((card) => (
               <Link
                 key={card.href}
@@ -119,6 +139,9 @@ function CommunitiesAccordion({ lang, label, onNavigate }) {
       </button>
       {open && (
         <div className="mt-2 flex flex-col gap-2 border-l border-black/10 pl-4">
+          <Link href={`/${lang}/listings`} className="text-sm font-medium text-petrol" onClick={onNavigate}>
+            {ui[lang].allFeatured}
+          </Link>
           {cards.map((card) => (
             <Link key={card.href} href={card.href} className="text-sm text-petrol/80" onClick={onNavigate}>
               {card.name}
@@ -141,13 +164,14 @@ export function Header({ lang }) {
         </Link>
         <nav className="hidden items-center gap-5 xl:flex">
           {items.map((it) =>
-            it.href.endsWith('/communities') ? (
+            it.href.endsWith('/listings') ? (
               <CommunitiesDropdown key={it.href} lang={lang} label={it.label} />
             ) : (
               <Link key={it.href} href={it.href} className="whitespace-nowrap text-sm text-petrol hover:text-ink">{it.label}</Link>
             )
           )}
           <SearchButton lang={lang} variant="petrol" className="whitespace-nowrap" />
+          <PortalButton lang={lang} />
           <LangToggle lang={lang} />
         </nav>
         <button className="text-sm text-petrol xl:hidden" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
@@ -158,14 +182,15 @@ export function Header({ lang }) {
         <div className="border-t border-black/10 bg-cream xl:hidden">
           <div className="wrap-wide flex flex-col gap-3 py-4">
             {items.map((it) =>
-              it.href.endsWith('/communities') ? (
+              it.href.endsWith('/listings') ? (
                 <CommunitiesAccordion key={it.href} lang={lang} label={it.label} onNavigate={() => setOpen(false)} />
               ) : (
                 <Link key={it.href} href={it.href} className="text-sm text-petrol" onClick={() => setOpen(false)}>{it.label}</Link>
               )
             )}
-            <div className="flex items-center gap-4 pt-2">
+            <div className="flex flex-wrap items-center gap-4 pt-2">
               <SearchButton lang={lang} variant="petrol" />
+              <PortalButton lang={lang} />
               <LangToggle lang={lang} />
             </div>
           </div>
@@ -219,6 +244,9 @@ export function Footer({ lang }) {
           </div>
           <p className="mt-4">
             <a className="link-underline" href={BUSINESS.googleBusiness} target="_blank" rel="noopener noreferrer">Google Business Profile</a>
+          </p>
+          <p className="mt-2">
+            <a className="link-underline" href={portalUrl(lang)}>{ui[lang].portalLong}</a>
           </p>
           <p className="mt-6 text-cream/60">{BUSINESS.city}, {BUSINESS.region}</p>
         </div>

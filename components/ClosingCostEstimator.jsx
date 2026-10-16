@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
-import { taxRateFor, defaultClosingDate, buyerClosingCosts, DEFAULT_ANNUAL_INSURANCE, SIMULTANEOUS_LOAN_POLICY_RATE } from '../lib/calc';
+import { AREA_TAX_RATES, taxRateFor, defaultClosingDate, buyerClosingCosts, DEFAULT_ANNUAL_INSURANCE, SIMULTANEOUS_LOAN_POLICY_RATE } from '../lib/calc';
+import { readHandoff, handoffHref, handoffNumber, shareParams, applyShared, scrollToResults } from '../lib/calcHandoff';
+import ListingImport from './ListingImport';
+import ShareLink from './ShareLink';
+
+// Starting values for the fee fields. Links to this calculator only carry the ones that
+// were changed, which keeps them short. Keys are the link's parameter names.
+const FEE_DEFAULTS = { orig: '1', appr: '550', lfee: '600', rec: '75', esc: '3', hoaFee: '0', survey: '0', conc: '0' };
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
@@ -16,7 +23,7 @@ function num(v) {
   return parseFloat(v) || 0;
 }
 
-export default function ClosingCostEstimator({ lang, copy, rates }) {
+export default function ClosingCostEstimator({ lang, copy, rates, listings = [] }) {
   const L = copy.labels;
   const R = copy.results;
 
@@ -30,28 +37,79 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
   const [closingDate, setClosingDate] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const [originationPercent, setOriginationPercent] = useState('1');
-  const [appraisalFee, setAppraisalFee] = useState('550');
-  const [lenderFees, setLenderFees] = useState('600');
-  const [recordingFees, setRecordingFees] = useState('75');
+  const [originationPercent, setOriginationPercent] = useState(FEE_DEFAULTS.orig);
+  const [appraisalFee, setAppraisalFee] = useState(FEE_DEFAULTS.appr);
+  const [lenderFees, setLenderFees] = useState(FEE_DEFAULTS.lfee);
+  const [recordingFees, setRecordingFees] = useState(FEE_DEFAULTS.rec);
   const [homeInsurance, setHomeInsurance] = useState(String(DEFAULT_ANNUAL_INSURANCE));
-  const [escrowMonths, setEscrowMonths] = useState('3');
+  const [escrowMonths, setEscrowMonths] = useState(FEE_DEFAULTS.esc);
   const [annualTax, setAnnualTax] = useState(() => String(Math.round(300000 * taxRateFor('mcallen'))));
   const [taxTouched, setTaxTouched] = useState(false);
-  const [hoaFee, setHoaFee] = useState('0');
-  const [surveyFee, setSurveyFee] = useState('0');
-  const [concessions, setConcessions] = useState('0');
+  const [hoaFee, setHoaFee] = useState(FEE_DEFAULTS.hoaFee);
+  const [surveyFee, setSurveyFee] = useState(FEE_DEFAULTS.survey);
+  const [concessions, setConcessions] = useState(FEE_DEFAULTS.conc);
   const [buyerPaysOwnerPolicy, setBuyerPaysOwnerPolicy] = useState(false);
+  // Whatever the link we arrived on carried, kept so the mortgage calculator's own fields go back to it.
+  const [carried, setCarried] = useState({});
 
-  useEffect(() => {
-    if (!closingDate) setClosingDate(defaultClosingDate());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  // Annual property tax defaults to price x the area rate until it's edited by hand
+  // (e.g. the actual bill for a specific property). Clearing the override re-estimates.
   useEffect(() => {
     if (!taxTouched) setAnnualTax(String(Math.round(num(salePrice) * taxRateFor(city))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [salePrice, city]);
+  }, [salePrice, city, taxTouched]);
+
+  // Everything a link to this calculator carries (lib/calcHandoff.js). The first six keys are
+  // shared with the mortgage calculator; the rest are this calculator's own.
+  const shareFields = {
+    price: { value: salePrice, set: setSalePrice },
+    dp: {
+      value: Number(downPercent.toFixed(6)),
+      set: (v) => {
+        setDownPercent(num(v));
+        setDownStr(String(round1(num(v))));
+        setDownMode('percent');
+      },
+    },
+    rate: { value: rateTouched ? rate : '', set: (v) => { setRate(v); setRateTouched(true); } },
+    city: { value: city, set: setCity, oneOf: Object.keys(AREA_TAX_RATES) },
+    tax: { value: taxTouched ? annualTax : '', set: (v) => { setAnnualTax(v); setTaxTouched(true); } },
+    ins: { value: homeInsurance, set: setHomeInsurance },
+    close: { value: closingDate, set: setClosingDate, def: defaultClosingDate(), type: 'date' },
+    orig: { value: originationPercent, set: setOriginationPercent, def: FEE_DEFAULTS.orig },
+    appr: { value: appraisalFee, set: setAppraisalFee, def: FEE_DEFAULTS.appr },
+    lfee: { value: lenderFees, set: setLenderFees, def: FEE_DEFAULTS.lfee },
+    rec: { value: recordingFees, set: setRecordingFees, def: FEE_DEFAULTS.rec },
+    esc: { value: escrowMonths, set: setEscrowMonths, def: FEE_DEFAULTS.esc },
+    hoaFee: { value: hoaFee, set: setHoaFee, def: FEE_DEFAULTS.hoaFee },
+    survey: { value: surveyFee, set: setSurveyFee, def: FEE_DEFAULTS.survey },
+    conc: { value: concessions, set: setConcessions, def: FEE_DEFAULTS.conc },
+    own: { value: buyerPaysOwnerPolicy, set: setBuyerPaysOwnerPolicy, type: 'bool' },
+  };
+
+  // On load: the default closing date, then whatever a shared link (or the mortgage
+  // calculator's "see cash to close for these numbers") carried. Declared after the tax
+  // estimate above on purpose — effects run in order, and a carried tax bill must win.
+  useEffect(() => {
+    const h = readHandoff();
+    setClosingDate(defaultClosingDate());
+    if (!Object.keys(h).length) return;
+    setCarried(h);
+    applyShared(h, shareFields);
+    // No hand-typed rate, but a 15- or 20-year term from the mortgage calculator: use
+    // today's average for that term, the same figure the mortgage calculator shows.
+    if (!handoffNumber(h, 'rate') && h.term === '15') setRate(String(rates.rate15));
+    if (!handoffNumber(h, 'rate') && h.term === '20') setRate(String(Math.round(((rates.rate30 + rates.rate15) / 2) * 100) / 100));
+    scrollToResults();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // "Import from an Arper Group listing": the listing's price and area; taxes follow from both.
+  function applyListing(listing) {
+    setSalePrice(String(listing.price));
+    setTaxTouched(false);
+    if (listing.citySlug) setCity(listing.citySlug);
+  }
 
   const downDollar = useMemo(() => Math.round((num(salePrice) * downPercent) / 100), [salePrice, downPercent]);
   const loanAmount = Math.max(num(salePrice) - downDollar, 0);
@@ -72,8 +130,14 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
   const closingCostsValue = usd.format(Math.abs(netClosingCosts));
   const totalCashToClose = downDollar + netClosingCosts;
 
-  const rateNoteText = rates.live && !rateTouched ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
+  const rateNoteText = rates.live && !rateTouched && num(rate) === rates.rate30 ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
   const taxNoteText = !taxTouched ? copy.taxNote.replace('{city}', cityName) : null;
+
+  // One set of parameters, two links: this calculator (to share) and the mortgage
+  // calculator ("see monthly payment for these numbers").
+  const linkParams = { ...carried, ...shareParams(shareFields) };
+  const shareHref = handoffHref(lang, 'resources/closing-cost-estimator', linkParams);
+  const mortgageHref = handoffHref(lang, 'resources/mortgage-calculator', linkParams);
 
   const [showLead, setShowLead] = useState(false);
   const [leadSent, setLeadSent] = useState(false);
@@ -94,6 +158,7 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
       `Origination: ${usd.format(originationCost)}, Appraisal: ${usd.format(num(appraisalFee))}, Other lender fees: ${usd.format(num(lenderFees))}`,
       `Loan title policy: ${usd.format(SIMULTANEOUS_LOAN_POLICY_RATE)}, Recording: ${usd.format(num(recordingFees))}`,
       ...(buyerPaysOwnerPolicy ? [`Owner's title policy (buyer-paid): ${usd.format(ownerPolicyPremium)}`] : []),
+      `Property tax (annual): ${usd.format(num(annualTax))} (${taxTouched ? 'entered by visitor' : 'area estimate'})`,
       `Homeowners insurance: ${usd.format(num(homeInsurance))}, Prepaid interest: ${usd2.format(interestCost)}, Escrow reserve: ${usd.format(escrowReserve)}`,
       `HOA fee: ${usd.format(num(hoaFee))}, Survey: ${usd.format(num(surveyFee))}`,
       ...(num(concessions) > 0 ? [`Seller concessions: ${usd.format(num(concessions))}`] : []),
@@ -142,6 +207,7 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
     <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:items-start">
       {/* Inputs */}
       <div className="grid gap-6">
+        <ListingImport lang={lang} listings={listings} onImport={applyListing} />
         <label className="grid gap-1 text-sm">
           <span>{L.salePrice}</span>
           <div className="relative">
@@ -322,6 +388,34 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 </div>
               </label>
 
+              <div className="grid gap-1 text-sm">
+                <label htmlFor="cce-annual-tax">{L.propertyTax}</label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/50">$</span>
+                  <input
+                    id="cce-annual-tax"
+                    inputMode="decimal"
+                    value={annualTax}
+                    onChange={(e) => {
+                      setAnnualTax(e.target.value.replace(/[^0-9.]/g, ''));
+                      setTaxTouched(true);
+                    }}
+                    className="w-full rounded-sm border border-black/20 bg-white py-2 pl-7 pr-3"
+                  />
+                </div>
+                {taxNoteText ? (
+                  <span className="text-xs text-ink/50">{taxNoteText}</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setTaxTouched(false)}
+                    className="justify-self-start text-xs font-medium text-petrol link-underline"
+                  >
+                    {L.taxReset}
+                  </button>
+                )}
+              </div>
+
               <label className="grid gap-1 text-sm">
                 <span>{L.escrowMonths}</span>
                 <input
@@ -395,17 +489,13 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
                 </div>
                 <span className="text-xs text-ink/50">{copy.concessionsNote}</span>
               </label>
-
-              {taxNoteText && (
-                <p className="text-xs text-ink/50 sm:col-span-2">{taxNoteText}</p>
-              )}
             </div>
           )}
         </div>
       </div>
 
       {/* Results */}
-      <div className="lg:sticky lg:top-24">
+      <div id="calc-results" className="scroll-mt-24 lg:sticky lg:top-24">
         <div className="rounded-sm border border-ink/10 bg-cream p-6 shadow-sm md:p-8">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{R.title}</p>
           <p className="mt-3 font-display text-4xl md:text-5xl">{usd.format(totalCashToClose)}</p>
@@ -436,6 +526,11 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
               <span className="font-display text-xl text-petrol">{usd.format(totalCashToClose)}</span>
             </div>
           </div>
+
+          <a href={mortgageHref} className="mt-6 inline-block text-sm font-medium text-petrol link-underline">
+            {copy.handoff}
+          </a>
+          <ShareLink lang={lang} href={shareHref} className="mt-3" />
 
           <p className="mt-6 text-xs text-ink/50">{copy.disclaimer}</p>
 

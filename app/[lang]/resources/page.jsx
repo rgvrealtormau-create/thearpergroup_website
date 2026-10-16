@@ -34,7 +34,7 @@ export default function Resources({ params }) {
                 </span>
                 <h3 className="mt-3 font-display text-2xl">{card.title}</h3>
                 <p className="mt-3 flex-1 text-sm text-ink/75">{card.body}</p>
-                <span className="mt-5 text-sm font-medium text-petrol link-underline">{card.cta} →</span>
+                <span className="mt-5 text-sm font-medium text-petrol link-underline">{card.cta}</span>
               </Link>
             ) : (
               <div

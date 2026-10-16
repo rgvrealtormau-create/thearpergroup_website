@@ -15,6 +15,10 @@ export default function HomeValuation({ params }) {
         <div>
           <h1 className="text-4xl md:text-5xl italic">{c.title}</h1>
           <p className="mt-5 max-w-md text-lg text-ink/80">{c.lede}</p>
+          <div className="mt-10 max-w-md border-l-2 border-gold pl-5">
+            <h2 className="text-xl md:text-2xl">{c.listTitle}</h2>
+            <p className="mt-2 text-ink/80">{c.listBody}</p>
+          </div>
         </div>
         <div>
           <ValuationForm lang={params.lang} copy={c} />
