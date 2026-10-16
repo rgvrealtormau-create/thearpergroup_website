@@ -163,7 +163,8 @@ export async function POST(request) {
       source: isCoopAgent
         ? 'thearpergroup.com — Vittoria co-op agent'
         : formType === 'vittoria_meta_ad'
-          ? 'Meta Lead Ad — Vittoria'
+          // Must match the Brivity sources exactly: each one triggers its ARPER auto plan.
+          ? `ARPER Meta - Vittoria ${lang === 'es' ? 'ES' : 'EN'}`
           : isVittoria && referral
           ? 'thearpergroup.com — Vittoria (visited model home)'
           : isVittoria
