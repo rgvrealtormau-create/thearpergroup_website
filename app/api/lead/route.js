@@ -64,6 +64,17 @@ async function featuredListingLabel(slug) {
 
 const SELLER_FORMS = new Set(['home_valuation', 'seller_net_proceeds_calculator']);
 
+// The Brivity source for a website lead. Must match a source in Brivity > Settings > Sources
+// exactly, or Brivity leaves the source blank and no auto plan starts.
+function brivitySource({ formType, lang, isVittoria, isCoopAgent, referral }) {
+  const L = lang === 'es' ? 'ES' : 'EN';
+  if (isCoopAgent) return 'ARPER Website - Co-op Agent';
+  if (formType === 'vittoria_meta_ad') return `ARPER Meta - Vittoria ${L}`;
+  if (isVittoria) return referral ? `ARPER Website - Vittoria Visited ${L}` : `ARPER Website - Vittoria ${L}`;
+  if (SELLER_FORMS.has(formType)) return `ARPER Website - Seller ${L}`;
+  return `ARPER Website - Buyer ${L}`;
+}
+
 function splitName(name) {
   const trimmed = (name || '').trim().replace(/\s+/g, ' ');
   if (!trimmed) return { firstName: '', lastName: '' };
@@ -159,18 +170,9 @@ export async function POST(request) {
     sendBrivityEmail({
       firstName, lastName, email, phone, note: brivityNoteFinal,
       type: isCoopAgent ? null : SELLER_FORMS.has(formType) ? 'Seller' : 'Buyer',
-      // A Vittoria buyer credited to a model-home agent has already seen the home in person,
-      // so Brivity gets a distinct source and can start the "already visited" plan.
-      source: isCoopAgent
-        ? 'thearpergroup.com — Vittoria co-op agent'
-        : formType === 'vittoria_meta_ad'
-          // Must match the Brivity sources exactly: each one triggers its ARPER auto plan.
-          ? `ARPER Meta - Vittoria ${lang === 'es' ? 'ES' : 'EN'}`
-          : isVittoria && referral
-          ? 'thearpergroup.com — Vittoria (visited model home)'
-          : isVittoria
-            ? 'thearpergroup.com — Vittoria'
-            : meta.label.replace('Website —', 'thearpergroup.com —'),
+      // Brivity only keeps a lead's source when it matches a source in Brivity exactly, and
+      // each ARPER source (with its language) starts its own ARPER auto plan.
+      source: brivitySource({ formType, lang, isVittoria, isCoopAgent, referral }),
       propertyAddress: formType === 'home_valuation' ? address : undefined,
     }),
     wantsWelcome ? sendVittoriaWelcomeEmail({ to: email, name, lang, referralAgent: referral }) : Promise.resolve(null),
