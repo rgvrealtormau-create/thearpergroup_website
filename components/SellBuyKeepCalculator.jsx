@@ -251,45 +251,89 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
     yearsLived === '' ? null : windowEnd ? fill(NK.window, { windowEnd: formatDate(windowEnd, lang) }) : NK.windowShort,
   ].filter(Boolean);
 
+  // Plain-language cards: every path answers the same questions (out of
+  // pocket at closing, extra cost of the move, monthly after, what's left),
+  // each with a line saying where the number comes from. No ranking.
+  const P = copy.plain;
+  const monthsText = (n) => (n === 1 ? N.keep.monthOne : N.keep.monthMany.replace('{n}', n));
+  const keepGap = Math.abs(keep.cashFlowMonthly);
   const cards = [
     {
       key: 'sell',
-      rows: [usd.format(sellShort), usd.format(sellMonthly), usd.format(gap.total), usd.format(nextPayment)],
-      notes: sellNotes,
+      pocket: {
+        value: sellShort,
+        line: fill(sellShort > savingsAmt ? P.sell.pocketOverSavings : sellShort > 0 ? P.sell.pocketShort : P.sell.pocketCovered, { needed: usd.format(needed), savings: usd.format(savingsAmt) }),
+      },
+      move: {
+        value: gap.total,
+        line: housingMode === 'leaseback' && gap.total > 0
+          ? fill(P.sell.moveLeaseback, { days: gap.leasebackDays })
+          : gap.total > 0 ? fill(P.sell.moveTemp, { months: num(monthsBetween) }) : P.sell.moveNone,
+      },
+      monthly: { value: nextPayment, line: P.sell.monthly },
+      extra: { label: P.q.leftOver, value: Math.max(net - needed, 0), line: P.sell.leftOver },
+      details: sellNotes,
     },
     {
       key: 'buy',
-      unavailable: maxLine == null ? copy.helocUnavailable : null,
-      needs: buyNeeds,
-      rows: [usd.format(buyFromPocket), usd.format(num(piti) + helocMonthly + nextPayment), usd.format(overlapTotal), usd.format(nextPayment)],
-      notes: buyNotes,
+      unavailable: maxLine == null ? P.unavailable : null,
+      asks: [
+        ...(interestOnly && helocRate === '' ? [{ key: 'helocRate', label: P.ask.helocRate, hint: P.ask.rateHint, kind: 'percent', value: helocRate, set: setHelocRate }] : []),
+        ...(!interestOnly && helocPayment === '' ? [{ key: 'helocPayment', label: L.helocPayment, hint: P.ask.rateHint, kind: 'money', value: helocPayment, set: setHelocPayment }] : []),
+        ...(overlapMonths === '' ? [{ key: 'overlap', label: P.ask.overlap, kind: 'plain', value: overlapMonths, set: setOverlapMonths }] : []),
+      ],
+      pocket: {
+        value: buyFromPocket,
+        line: fill(
+          buyFromPocket > savingsAmt ? P.buy.pocketOverSavings : shortfall > 0 ? P.buy.pocketShort : draw >= needed ? P.buy.pocketAll : P.buy.pocket,
+          { draw: usd.format(draw), needed: usd.format(needed), savings: usd.format(savingsAmt) },
+        ),
+      },
+      move: { value: overlapTotal, line: fill(P.buy.move, { months }) },
+      monthly: { value: nextPayment, line: P.buy.monthly },
+      extra: { label: P.q.leftOver, value: Math.max(net - draw, 0), line: P.buy.leftOver },
+      details: buyNotes,
     },
     {
       key: 'keep',
-      needs: keepNeeds,
-      rows: [
-        usd.format(keepFromPocket),
-        usd.format(num(piti) + nextPayment + keepHelocMonthly),
-        usd.format(num(tenantMonths) * num(piti) + (keepHeloc ? num(helocClosing) : 0)),
-        usd.format(nextPayment - keep.cashFlowMonthly + keepHelocMonthly),
+      asks: [
+        ...(rent === '' ? [{ key: 'rent', label: P.ask.rent, kind: 'money', value: rent, set: setRent }] : []),
+        ...(keepHeloc && interestOnly && helocRate === '' ? [{ key: 'helocRate', label: P.ask.helocRate, hint: P.ask.rateHint, kind: 'percent', value: helocRate, set: setHelocRate }] : []),
       ],
-      notes: keepNotes,
+      pocket: {
+        value: keepFromPocket,
+        line: keepHeloc ? fill(P.keep.pocketHeloc, { draw: usd.format(draw) })
+          : fill(needed > savingsAmt ? P.keep.pocketOverSavings : P.keep.pocketSavings, { needed: usd.format(needed), savings: usd.format(savingsAmt) }),
+      },
+      move: {
+        value: num(tenantMonths) * num(piti) + (keepHeloc ? num(helocClosing) : 0),
+        line: num(tenantMonths) > 0 ? fill(P.keep.move, { months: monthsText(num(tenantMonths)) }) : P.keep.moveNone,
+      },
+      monthly: {
+        value: nextPayment - keep.cashFlowMonthly + keepHelocMonthly,
+        line: fill(keep.cashFlowMonthly < 0 ? P.keep.monthlyShort : P.keep.monthlyCovered, { next: usd.format(nextPayment + keepHelocMonthly), gap: usd.format(keepGap) }),
+      },
+      extra: keep.equity == null ? null : { label: P.q.equity.replace('{years}', years), value: keep.equity, line: P.keep.equity },
+      details: keepNotes,
+      lenderView: true,
     },
   ];
+  const cardReady = (card) => !card.unavailable && !(card.asks && card.asks.length);
 
   const cityName = (slug) => (slug === 'other' ? L.otherCity : cities[slug]?.[lang]?.name ?? slug);
   const rateNoteText = rates.live && !rateTouched && term !== 20 ? copy.rateNote.replace('{date}', formatDate(rates.asOfDate, lang)) : null;
 
 
   const pathName = (k) => copy.tabs[k];
-  const cardCell = (card, i) => (card.unavailable || card.needs ? copy.export.notAvailable : card.rows[i]);
-  const cardStatus = (card) => card.unavailable || card.needs || null;
+  const cardValues = (card) => [card.pocket.value, card.move.value, card.monthly.value].map((v) => usd.format(v));
+  const cardCell = (card, i) => (cardReady(card) ? cardValues(card)[i] : copy.export.notAvailable);
+  const cardStatus = (card) => card.unavailable || (card.asks?.length ? card.asks.map((a) => a.label).join(' ') : null);
 
   // Normalized payload for the shared PDF template (lib/export) — built on click only.
   // The headline names the move, not a winning path.
   function buildExportPayload() {
     const X = copy.export;
-    const rowLabels = [copy.rows.cashAtClosing, copy.rows.monthlyDuring, copy.rows.totalMove, copy.rows.ongoing];
+    const rowLabels = [copy.plain.q.pocket, copy.plain.q.move, copy.plain.q.monthly];
     return {
       calculator: 'sell-buy-or-keep',
       lang,
@@ -339,7 +383,7 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
       notes: [
         ...cards.flatMap((card) => {
           const status = cardStatus(card);
-          const lines = status ? [status] : card.notes;
+          const lines = status ? [status] : [copy.plain.summary[card.key], card.pocket.line, card.move.line, card.monthly.line, ...card.details];
           return lines.map((n) => X.pathNote.replace('{path}', pathName(card.key)).replace('{note}', n));
         }),
         ...(rent !== '' ? [copy.lenderView.caveat] : []),
@@ -373,7 +417,8 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
     const line = (card) => {
       const status = cardStatus(card);
       if (status) return `${pathName(card.key)}: ${status}`;
-      return `${pathName(card.key)}: cash at next closing ${card.rows[0]}, monthly during move ${card.rows[1]}, total move cost ${card.rows[2]}, ongoing monthly ${card.rows[3]}`;
+      const [pocket, move, monthly] = cardValues(card);
+      return `${pathName(card.key)}: out of pocket at closing ${pocket}, extra cost of the move ${move}, monthly after ${monthly}`;
     };
     const message = [
       `Current home: ${usd.format(num(salePrice))} value, ${usd.format(num(payoff))} payoff, ${usd.format(num(piti))}/mo PITI, ${cityName(city)}${hasHomeEquityLoan ? ', has a home equity loan' : ''}`,
@@ -608,46 +653,29 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
         </div>
       </div>
 
-      {/* Results: same four rows on every card, no ranking or winner styling */}
-      <div>
+      {/* Results: the same plain questions on every card, no ranking or winner styling */}
+      <div id="calc-results">
         <h2 className="font-display text-2xl md:text-3xl">{copy.resultsTitle}</h2>
+        <p className="mt-3 max-w-3xl text-sm text-ink/70">{copy.resultsIntro}</p>
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
           {cards.map((card) => (
-            <div key={card.key} className="flex flex-col rounded-sm border border-ink/10 bg-cream p-6 shadow-sm">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{copy.tabs[card.key]}</p>
-              </div>
-              {card.unavailable || card.needs ? (
-                <p className="mt-4 text-sm text-ink/80">{card.unavailable || card.needs}</p>
-              ) : (
+            <ResultCard
+              key={card.key}
+              card={card}
+              title={copy.tabs[card.key]}
+              summary={P.summary[card.key]}
+              P={P}
+              ready={cardReady(card)}
+              lenderView={card.lenderView && rent !== '' ? (
                 <>
-                  <div className="mt-4 divide-y divide-ink/10 text-sm">
-                    <Row label={copy.rows.cashAtClosing} value={card.rows[0]} />
-                    <Row label={copy.rows.monthlyDuring} value={card.rows[1]} />
-                    <Row label={copy.rows.totalMove} value={card.rows[2]} />
-                    <Row label={copy.rows.ongoing} value={card.rows[3]} />
-                  </div>
-                  <ul className="mt-5 grid gap-2 text-xs text-ink/60">
-                    {card.notes.map((n) => <li key={n}>{n}</li>)}
-                  </ul>
-                </>
-              )}
-              {card.key === 'keep' && (
-                <div className="mt-5 border-t border-ink/10 pt-4 text-xs text-ink/70">
                   <p className="font-medium text-ink">{copy.lenderView.title}</p>
-                  {rent === '' ? (
-                    <p className="mt-2">{copy.lenderView.needsRent}</p>
-                  ) : (
-                    <>
-                      <p className="mt-2">{fill(copy.lenderView.body, { rent: usd.format(num(rent)), piti: usd.format(departingPitia), adjusted: usd.format(lender.adjusted) })}</p>
-                      <p className="mt-2">{lender.treatment === 'debt' ? copy.lenderView.debt : copy.lenderView.offset}</p>
-                      {lender.reserves > 0 && <p className="mt-2">{copy.lenderView.reserves.replace('{reserves}', usd.format(lender.reserves))}</p>}
-                    </>
-                  )}
+                  <p className="mt-2">{fill(copy.lenderView.body, { rent: usd.format(num(rent)), piti: usd.format(departingPitia), adjusted: usd.format(lender.adjusted) })}</p>
+                  <p className="mt-2">{lender.treatment === 'debt' ? copy.lenderView.debt : copy.lenderView.offset}</p>
+                  {lender.reserves > 0 && <p className="mt-2">{copy.lenderView.reserves.replace('{reserves}', usd.format(lender.reserves))}</p>}
                   <p className="mt-2 text-ink/50">{copy.lenderView.caveat}</p>
-                </div>
-              )}
-            </div>
+                </>
+              ) : null}
+            />
           ))}
         </div>
         <p className="mt-6 max-w-3xl text-xs text-ink/50">{copy.disclaimer}</p>
@@ -713,6 +741,61 @@ export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates })
         <h2 className="font-display text-xl">{copy.contingent.title}</h2>
         <p className="mt-2 max-w-3xl text-sm text-ink/75">{copy.contingent.body}</p>
       </div>
+    </div>
+  );
+}
+
+function ResultCard({ card, title, summary, P, ready, lenderView }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex flex-col rounded-sm border border-ink/10 bg-cream p-6 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{title}</p>
+      <p className="mt-2 text-sm text-ink/80">{summary}</p>
+
+      {card.unavailable ? (
+        <p className="mt-5 rounded-sm bg-paper p-4 text-sm text-ink/80">{card.unavailable}</p>
+      ) : !ready ? (
+        <div className="mt-5 grid gap-4 rounded-sm bg-paper p-4">
+          {card.asks.map((a) => (
+            a.kind === 'money' ? <Money key={a.key} label={a.label} value={a.value} onChange={a.set} note={a.hint} />
+              : a.kind === 'percent' ? <Percent key={a.key} label={a.label} value={a.value} onChange={a.set} note={a.hint} />
+              : <Plain key={a.key} label={a.label} value={a.value} onChange={a.set} note={a.hint} />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-5">
+          <Answer label={P.q.pocket} value={card.pocket.value} line={card.pocket.line} />
+          <Answer label={P.q.move} value={card.move.value} line={card.move.line} />
+          <Answer label={P.q.monthly} value={card.monthly.value} line={card.monthly.line} suffix={P.perMonth} />
+          {card.extra && <Answer label={card.extra.label} value={card.extra.value} line={card.extra.line} />}
+        </div>
+      )}
+
+      {ready && (
+        <div className="mt-6 border-t border-ink/10 pt-4">
+          <button type="button" onClick={() => setOpen((v) => !v)} className="text-sm font-medium text-petrol link-underline">
+            {open ? P.detailsHide : P.detailsShow}
+          </button>
+          {open && (
+            <div className="mt-4 grid gap-4 text-xs text-ink/65">
+              <ul className="grid gap-2">
+                {card.details.map((n) => <li key={n}>{n}</li>)}
+              </ul>
+              {lenderView && <div className="border-t border-ink/10 pt-4 text-ink/70">{lenderView}</div>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Answer({ label, value, line, suffix = '' }) {
+  return (
+    <div>
+      <p className="text-sm text-ink/70">{label}</p>
+      <p className="mt-1 font-display text-3xl text-ink">{usd.format(value)}{suffix && <span className="text-base text-ink/50">{suffix}</span>}</p>
+      <p className="mt-1 text-xs text-ink/55">{line}</p>
     </div>
   );
 }
@@ -796,15 +879,6 @@ function YesNo({ label, value, onChange, yes, no }) {
           </button>
         ))}
       </div>
-    </div>
-  );
-}
-
-function Row({ label, value }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-2.5">
-      <span className="text-ink/70">{label}</span>
-      <span className="font-medium text-ink">{value}</span>
     </div>
   );
 }
