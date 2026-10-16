@@ -43,6 +43,7 @@ const FORM_META = {
   seller_net_proceeds_calculator: { label: 'Website — Seller Net Proceeds Calculator', note: 'Seller net proceeds calculator inquiry' },
   cedar_ridge_reserve: { label: 'Website — Cedar Ridge Reserve', note: 'Cedar Ridge Reserve inquiry' },
   vittoria: { label: 'Website — Vittoria', note: 'Vittoria townhomes inquiry' },
+  vittoria_meta_ad: { label: 'Meta Ad — Vittoria', note: 'Vittoria pre-sale Meta lead ad' },
   vittoria_model_home: { label: 'Website — Vittoria model home', note: 'Vittoria model home check-in' },
   vittoria_brochure: { label: 'Website — Vittoria brochure', note: 'Vittoria brochure download' },
   vittoria_agent: { label: 'Website — Vittoria co-op agent', note: 'Agent downloaded the Vittoria brochure for a client' },
@@ -114,6 +115,8 @@ export async function POST(request) {
     ? `${vittoriaLot.community}${vittoriaLot.lot ? ` · Lot ${vittoriaLot.lot}` : ''}${vittoriaLot.lotId ? ` · UUID ${vittoriaLot.lotId}` : ''} · Subject: ${vittoriaLot.subject}`
     : null;
   const brivityEmailNote = vittoriaAttribution ? `${brivityNoteWithLang} — ${vittoriaAttribution}` : brivityNoteWithLang;
+  // Meta lead-ad answers (timeline, agent, lender) are short and worth having in Brivity too.
+  const brivityNoteFinal = formType === 'vittoria_meta_ad' && detail ? `${brivityEmailNote} — ${detail}` : brivityEmailNote;
 
   const sheetNotes = detail
     ? `${brivityNote} — submitted ${submittedAt} CT\nBuyer message: ${detail}`
@@ -144,7 +147,7 @@ export async function POST(request) {
   ];
 
   // Vittoria buyers who leave an email get an automatic welcome email with the page link.
-  const isVittoria = ['vittoria', 'vittoria_model_home', 'vittoria_brochure', 'vittoria_agent'].includes(formType);
+  const isVittoria = ['vittoria', 'vittoria_model_home', 'vittoria_brochure', 'vittoria_agent', 'vittoria_meta_ad'].includes(formType);
   // An agent downloading the brochure for a client is a co-op contact, not a buyer: no
   // buyer welcome email, no lead type, and a source no buyer plan starts on.
   const isCoopAgent = formType === 'vittoria_agent';
@@ -153,13 +156,15 @@ export async function POST(request) {
   const [sheetResult, emailResult, welcomeResult, alertResult] = await Promise.allSettled([
     appendLeadRow(sheetRow),
     sendBrivityEmail({
-      firstName, lastName, email, phone, note: brivityEmailNote,
+      firstName, lastName, email, phone, note: brivityNoteFinal,
       type: isCoopAgent ? null : SELLER_FORMS.has(formType) ? 'Seller' : 'Buyer',
       // A Vittoria buyer credited to a model-home agent has already seen the home in person,
       // so Brivity gets a distinct source and can start the "already visited" plan.
       source: isCoopAgent
         ? 'thearpergroup.com — Vittoria co-op agent'
-        : isVittoria && referral
+        : formType === 'vittoria_meta_ad'
+          ? 'Meta Lead Ad — Vittoria'
+          : isVittoria && referral
           ? 'thearpergroup.com — Vittoria (visited model home)'
           : isVittoria
             ? 'thearpergroup.com — Vittoria'
