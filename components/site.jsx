@@ -235,6 +235,7 @@ export function Footer({ lang }) {
             <li><a className="link-underline" href="https://drive.google.com/file/d/1FjegoP-dupXJXuQMlJKE_MTZPcXdjy4r/view" target="_blank" rel="noopener noreferrer">{f.iab}</a></li>
             <li><a className="link-underline" href="https://www.trec.texas.gov/forms/consumer-protection-notice" target="_blank" rel="noopener">{f.cpn}</a></li>
           </ul>
+          <p className="mt-3"><a className="link-underline" href={`/${lang}/privacy`}>{f.privacy}</a></p>
         </div>
         <div className="text-sm">
           <div className="text-cream/90">{f.followUs}</div>
