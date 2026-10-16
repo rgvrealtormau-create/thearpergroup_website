@@ -3,24 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
-
-// Typical combined property-tax rate by area (annual, as a fraction of price).
-// Kept in sync with the same constants in MortgageCalculator.jsx / ClosingCostEstimator.jsx / SellerNetProceeds.jsx / TitlePolicyCalculator.jsx.
-const AREA_TAX_RATES = {
-  mcallen: 0.023, edinburg: 0.023, mission: 0.023, pharr: 0.023, weslaco: 0.023, mercedes: 0.023,
-  harlingen: 0.02, 'san-benito': 0.02, brownsville: 0.02, 'south-padre-island': 0.02,
-  other: 0.022,
-};
-
-function taxRateFor(city) {
-  return AREA_TAX_RATES[city] ?? AREA_TAX_RATES.other;
-}
-
-// Cameron and Willacy counties (TWIA-designated coastal windstorm zone) vs.
-// Hidalgo county (not TWIA-eligible) — tdi.texas.gov / twia.org/coverage-eligibility.
-// Kept in sync with InvestmentPropertyCalculator.jsx.
-const TWIA_CITIES = new Set(['harlingen', 'san-benito', 'brownsville', 'south-padre-island']);
-const HIDALGO_CITIES = new Set(['mcallen', 'edinburg', 'mission', 'pharr', 'weslaco', 'mercedes']);
+import { taxRateFor, TWIA_CITIES, HIDALGO_CITIES, titleBasicPremium } from '../lib/calc';
 
 // A vacant property mid-rehab usually isn't covered by a standard landlord
 // policy — lenders typically require a separate vacant/renovation (builder's
@@ -39,57 +22,6 @@ function insuranceNoteFor(city, copy, cityName) {
       ? copy.insuranceNoteStandard
       : copy.insuranceNoteOther;
   return template.replace('{city}', cityName);
-}
-
-// Texas Department of Insurance promulgated basic premium rates for an
-// Owner's Policy, effective March 1, 2026 (tdi.texas.gov/title/titlerates2026.html).
-// Same verified table and formula as TitlePolicyCalculator.jsx — reused here
-// for the seller-paid Owner's Policy on resale rather than re-derived.
-const MIN_PREMIUM = 308;
-const BRACKET_TABLE = {
-  25000: 308, 25500: 310, 26000: 314, 26500: 317, 27000: 319, 27500: 322,
-  28000: 325, 28500: 328, 29000: 333, 29500: 336, 30000: 339, 30500: 341,
-  31000: 345, 31500: 348, 32000: 351, 32500: 355, 33000: 357, 33500: 361,
-  34000: 364, 34500: 368, 35000: 371, 35500: 373, 36000: 376, 36500: 380,
-  37000: 383, 37500: 386, 38000: 390, 38500: 393, 39000: 395, 39500: 399,
-  40000: 401, 40500: 406, 41000: 408, 41500: 412, 42000: 415, 42500: 418,
-  43000: 420, 43500: 424, 44000: 428, 44500: 431, 45000: 434, 45500: 437,
-  46000: 440, 46500: 444, 47000: 446, 47500: 448, 48000: 453, 48500: 457,
-  49000: 460, 49500: 462, 50000: 465, 50500: 468, 51000: 470, 51500: 474,
-  52000: 478, 52500: 482, 53000: 484, 53500: 488, 54000: 491, 54500: 493,
-  55000: 496, 55500: 499, 56000: 504, 56500: 507, 57000: 509, 57500: 513,
-  58000: 517, 58500: 519, 59000: 522, 59500: 525, 60000: 529, 60500: 533,
-  61000: 536, 61500: 537, 62000: 541, 62500: 545, 63000: 547, 63500: 551,
-  64000: 554, 64500: 557, 65000: 560, 65500: 563, 66000: 567, 66500: 571,
-  67000: 574, 67500: 575, 68000: 579, 68500: 582, 69000: 585, 69500: 588,
-  70000: 592, 70500: 596, 71000: 599, 71500: 601, 72000: 604, 72500: 608,
-  73000: 611, 73500: 613, 74000: 617, 74500: 621, 75000: 625, 75500: 627,
-  76000: 629, 76500: 632, 77000: 636, 77500: 639, 78000: 643, 78500: 646,
-  79000: 650, 79500: 651, 80000: 655, 80500: 658, 81000: 662, 81500: 664,
-  82000: 667, 82500: 672, 83000: 675, 83500: 677, 84000: 680, 84500: 684,
-  85000: 687, 85500: 689, 86000: 692, 86500: 697, 87000: 701, 87500: 703,
-  88000: 705, 88500: 709, 89000: 713, 89500: 715, 90000: 718, 90500: 721,
-  91000: 725, 91500: 729, 92000: 731, 92500: 734, 93000: 737, 93500: 741,
-  94000: 742, 94500: 747, 95000: 751, 95500: 754, 96000: 755, 96500: 759,
-  97000: 763, 97500: 766, 98000: 769, 98500: 773, 99000: 776, 99500: 779,
-  100000: 780,
-};
-const FORMULA_TIERS = [
-  { upTo: 1_000_000, subtract: 100_000, rate: 0.00494, add: 780 },
-  { upTo: 5_000_000, subtract: 1_000_000, rate: 0.00406, add: 5_226 },
-  { upTo: 15_000_000, subtract: 5_000_000, rate: 0.00335, add: 21_466 },
-  { upTo: 25_000_000, subtract: 15_000_000, rate: 0.00238, add: 54_966 },
-  { upTo: 50_000_000, subtract: 25_000_000, rate: 0.00143, add: 78_766 },
-  { upTo: 100_000_000, subtract: 50_000_000, rate: 0.00129, add: 114_516 },
-  { upTo: Infinity, subtract: 100_000_000, rate: 0.00116, add: 179_016 },
-];
-
-function ownersPolicyPremium(amount) {
-  if (amount <= 0) return 0;
-  if (amount <= 25000) return MIN_PREMIUM;
-  if (amount <= 100000) return BRACKET_TABLE[Math.ceil(amount / 500) * 500];
-  const tier = FORMULA_TIERS.find((t) => amount <= t.upTo);
-  return Math.round((amount - tier.subtract) * tier.rate) + tier.add;
 }
 
 const DEFAULT_CONTINGENCY = 15;
@@ -169,7 +101,7 @@ export default function FlipCalculator({ lang, copy }) {
   const totalMonthlyHolding = monthlyInterest + monthlyTax + monthlyInsurance + monthlyUtilities;
   const holdingCosts = totalMonthlyHolding * num(holdMonths);
 
-  const titlePremium = useMemo(() => ownersPolicyPremium(num(arv)), [arv]);
+  const titlePremium = useMemo(() => titleBasicPremium(num(arv)), [arv]);
   const titleCost = buyerPaysTitle ? 0 : titlePremium;
   const commissionCost = num(arv) * (num(commissionPercent) / 100);
   const sellSideCosts = commissionCost + titleCost + num(otherSellClosingCosts);

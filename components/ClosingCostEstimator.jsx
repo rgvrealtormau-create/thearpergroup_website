@@ -3,42 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
-
-// Typical combined property-tax rate by area (annual, as a fraction of price).
-// Kept in sync with the same constants in MortgageCalculator.jsx / SellerNetProceeds.jsx.
-const AREA_TAX_RATES = {
-  mcallen: 0.023, edinburg: 0.023, mission: 0.023, pharr: 0.023, weslaco: 0.023, mercedes: 0.023,
-  harlingen: 0.02, 'san-benito': 0.02, brownsville: 0.02, 'south-padre-island': 0.02,
-  other: 0.022,
-};
-
-function taxRateFor(city) {
-  return AREA_TAX_RATES[city] ?? AREA_TAX_RATES.other;
-}
-
-// A default first-year homeowners insurance estimate, matching the
-// default already used in MortgageCalculator.jsx for consistency.
-const DEFAULT_ANNUAL_INSURANCE = 1800;
-
-// Texas' promulgated simultaneous-issue rate for a buyer's loan policy
-// issued alongside a seller-paid owner's policy (Rate Rule R-5): a flat
-// $100 whenever the loan amount does not exceed the owner's policy amount
-// — true for virtually every purchase-money loan, since the loan can't
-// exceed the sale price. tdi.texas.gov/title/titlem3b.html
-const SIMULTANEOUS_LOAN_POLICY_RATE = 100;
-
-// Texas' promulgated (state-set) basic premium rate for an owner's title
-// policy, effective March 1, 2026 (tdi.texas.gov/title/titlerates2026.html).
-// Only relevant here if the buyer is also covering the seller's customary
-// owner's policy — kept in sync with the same formula in SellerNetProceeds.jsx.
-function ownerTitlePremium(amount) {
-  if (amount <= 0) return 0;
-  if (amount <= 25000) return 308;
-  if (amount <= 100000) return Math.round(308 + (amount - 25000) * ((780 - 308) / 75000));
-  if (amount <= 1000000) return Math.round(780 + (amount - 100000) * 0.00494);
-  if (amount <= 5000000) return Math.round(5226 + (amount - 1000000) * 0.00406);
-  return Math.round(21466 + (amount - 5000000) * 0.00335);
-}
+import { taxRateFor, defaultClosingDate, buyerClosingCosts, DEFAULT_ANNUAL_INSURANCE, SIMULTANEOUS_LOAN_POLICY_RATE } from '../lib/calc';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
@@ -49,27 +14,6 @@ function round1(n) {
 
 function num(v) {
   return parseFloat(v) || 0;
-}
-
-function defaultClosingDate() {
-  const d = new Date();
-  d.setDate(d.getDate() + 45);
-  return d.toISOString().slice(0, 10);
-}
-
-// Per-diem interest from the closing date through the end of that month —
-// what most Texas lenders collect at closing before the first regular payment.
-function prepaidInterest(loanAmount, ratePercent, closingDateStr) {
-  if (!closingDateStr || loanAmount <= 0 || ratePercent <= 0) return 0;
-  const closing = new Date(`${closingDateStr}T00:00:00`);
-  if (isNaN(closing.getTime())) return 0;
-  const year = closing.getFullYear();
-  const month = closing.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const dayOfMonth = closing.getDate();
-  const daysRemaining = Math.max(daysInMonth - dayOfMonth + 1, 0);
-  const dailyRate = ratePercent / 100 / 365;
-  return Math.round(loanAmount * dailyRate * daysRemaining);
 }
 
 export default function ClosingCostEstimator({ lang, copy, rates }) {
@@ -113,18 +57,15 @@ export default function ClosingCostEstimator({ lang, copy, rates }) {
   const loanAmount = Math.max(num(salePrice) - downDollar, 0);
   const cityName = city === 'other' ? L.otherCity : cities[city]?.[lang]?.name ?? city;
 
-  const originationCost = Math.round((loanAmount * num(originationPercent)) / 100);
-  const interestCost = useMemo(
-    () => prepaidInterest(loanAmount, num(rate), closingDate),
-    [loanAmount, rate, closingDate]
+  const { originationCost, interestCost, escrowReserve, ownerPolicyPremium, subtotal: closingCostsSubtotal } = useMemo(
+    () => buyerClosingCosts({
+      price: num(salePrice), loanAmount, ratePercent: num(rate), closingDate, annualTax: num(annualTax),
+      originationPercent: num(originationPercent), appraisalFee: num(appraisalFee), lenderFees: num(lenderFees),
+      recordingFees: num(recordingFees), homeInsurance: num(homeInsurance), escrowMonths: num(escrowMonths),
+      hoaFee: num(hoaFee), surveyFee: num(surveyFee), buyerPaysOwnerPolicy,
+    }),
+    [salePrice, loanAmount, rate, closingDate, annualTax, originationPercent, appraisalFee, lenderFees, recordingFees, homeInsurance, escrowMonths, hoaFee, surveyFee, buyerPaysOwnerPolicy]
   );
-  const escrowReserve = Math.round(((num(annualTax) + num(homeInsurance)) / 12) * num(escrowMonths));
-  const ownerPolicyPremium = useMemo(() => ownerTitlePremium(num(salePrice)), [salePrice]);
-
-  const closingCostsSubtotal =
-    originationCost + num(appraisalFee) + num(lenderFees) + SIMULTANEOUS_LOAN_POLICY_RATE + num(recordingFees) +
-    num(homeInsurance) + interestCost + escrowReserve + num(hoaFee) + num(surveyFee) +
-    (buyerPaysOwnerPolicy ? ownerPolicyPremium : 0);
   const netClosingCosts = closingCostsSubtotal - num(concessions);
   const isCredit = netClosingCosts < 0;
   const closingCostsLabel = isCredit ? R.creditBack : R.closingCostsSubtotal;

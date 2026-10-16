@@ -4,22 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import ExportButton from '../lib/export/ExportButton';
-
-// Typical combined property-tax rate by area (annual, as a fraction of price).
-const AREA_TAX_RATES = {
-  mcallen: 0.023, edinburg: 0.023, mission: 0.023, pharr: 0.023, weslaco: 0.023, mercedes: 0.023,
-  harlingen: 0.02, 'san-benito': 0.02, brownsville: 0.02, 'south-padre-island': 0.02,
-  other: 0.022,
-};
-
-const PMI_ANNUAL_RATE = 0.0055;
+import { taxRateFor, monthlyPI, PMI_ANNUAL_RATE } from '../lib/calc';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const usd2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
-
-function taxRateFor(city) {
-  return AREA_TAX_RATES[city] ?? AREA_TAX_RATES.other;
-}
 
 function num(v) {
   return parseFloat(v) || 0;
@@ -78,18 +66,8 @@ export default function MortgageCalculator({ lang, copy, rates }) {
 
   // Amortization math
   const loanAmount = Math.max(num(homePrice) - downDollar, 0);
-  const monthlyRate = num(rate) / 100 / 12;
   const numPayments = term * 12;
-  let principalInterest;
-  if (!numPayments) {
-    principalInterest = 0;
-  } else if (monthlyRate === 0) {
-    principalInterest = loanAmount / numPayments;
-  } else {
-    const factor = (1 + monthlyRate) ** numPayments;
-    principalInterest = factor > 1 ? (loanAmount * (monthlyRate * factor)) / (factor - 1) : loanAmount / numPayments;
-  }
-  if (!isFinite(principalInterest) || isNaN(principalInterest)) principalInterest = 0;
+  const principalInterest = monthlyPI(loanAmount, num(rate), term);
 
   const monthlyTax = num(tax) / 12;
   const monthlyInsurance = num(insurance) / 12;

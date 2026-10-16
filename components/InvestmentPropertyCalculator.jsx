@@ -5,32 +5,7 @@ import Link from 'next/link';
 import { cities, citySlugs } from '../lib/content';
 import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import ExportButton from '../lib/export/ExportButton';
-
-// Typical combined property-tax rate by area (annual, as a fraction of price).
-// Kept in sync with the same constants in MortgageCalculator.jsx / ClosingCostEstimator.jsx / SellerNetProceeds.jsx.
-const AREA_TAX_RATES = {
-  mcallen: 0.023, edinburg: 0.023, mission: 0.023, pharr: 0.023, weslaco: 0.023, mercedes: 0.023,
-  harlingen: 0.02, 'san-benito': 0.02, brownsville: 0.02, 'south-padre-island': 0.02,
-  other: 0.022,
-};
-
-function taxRateFor(city) {
-  return AREA_TAX_RATES[city] ?? AREA_TAX_RATES.other;
-}
-
-// Cameron and Willacy counties (TWIA-designated coastal windstorm zone) vs.
-// Hidalgo county (not TWIA-eligible) — tdi.texas.gov / twia.org/coverage-eligibility.
-// No city in our list sits in Willacy County, but the same TWIA framing applies there too.
-const TWIA_CITIES = new Set(['harlingen', 'san-benito', 'brownsville', 'south-padre-island']);
-const HIDALGO_CITIES = new Set(['mcallen', 'edinburg', 'mission', 'pharr', 'weslaco', 'mercedes']);
-
-// Statewide landlord-insurance planning range is roughly $1,500-$3,200/yr;
-// TWIA-eligible coastal counties trend toward the top of that range.
-function insuranceDefaultFor(city) {
-  if (TWIA_CITIES.has(city)) return 2800;
-  if (HIDALGO_CITIES.has(city)) return 1800;
-  return 2200;
-}
+import { taxRateFor, TWIA_CITIES, HIDALGO_CITIES, landlordInsuranceDefault as insuranceDefaultFor, monthlyPI, remainingBalance as loanBalance, rentalNoi } from '../lib/calc';
 
 function insuranceNoteFor(city, copy, cityName) {
   const template = TWIA_CITIES.has(city)
@@ -82,18 +57,6 @@ function round1(n) {
 
 function round2(n) {
   return Math.round(n * 100) / 100;
-}
-
-// Standard fixed-rate amortization — same formula as MortgageCalculator.jsx,
-// reused here for the annual debt service that NOI is compared against.
-function monthlyPI(loanAmount, ratePercent, termYears) {
-  const monthlyRate = ratePercent / 100 / 12;
-  const numPayments = termYears * 12;
-  if (!numPayments) return 0;
-  if (monthlyRate === 0) return loanAmount / numPayments;
-  const factor = (1 + monthlyRate) ** numPayments;
-  const pi = factor > 1 ? (loanAmount * (monthlyRate * factor)) / (factor - 1) : loanAmount / numPayments;
-  return isFinite(pi) && !isNaN(pi) ? pi : 0;
 }
 
 export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
@@ -150,14 +113,10 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
   const totalCashInvested = downDollar + num(closingCosts);
   const cityName = city === 'other' ? L.otherCity : cities[city]?.[lang]?.name ?? city;
 
-  const gsi = num(monthlyRent) * 12;
-  const vacancyLoss = gsi * (num(vacancyPercent) / 100);
-  const egi = gsi - vacancyLoss;
-  const managementFee = egi * (num(managementPercent) / 100);
-  const maintenanceReserve = gsi * (num(maintenancePercent) / 100);
-  const hoaAnnual = num(hoaMonthly) * 12;
-  const operatingExpenses = num(tax) + num(insurance) + managementFee + maintenanceReserve + hoaAnnual;
-  const noi = egi - operatingExpenses;
+  const { gsi, vacancyLoss, egi, managementFee, maintenanceReserve, hoaAnnual, noi } = rentalNoi({
+    monthlyRent: num(monthlyRent), vacancyPercent: num(vacancyPercent), managementPercent: num(managementPercent),
+    maintenancePercent: num(maintenancePercent), tax: num(tax), insurance: num(insurance), hoaMonthly: num(hoaMonthly),
+  });
   const capRate = num(price) > 0 ? noi / num(price) : 0;
 
   const monthlyDebtService = useMemo(() => monthlyPI(loanAmount, num(rate), term), [loanAmount, rate, term]);
@@ -188,7 +147,6 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
     const rentGrowth = num(rentGrowthPercent) / 100;
     const appreciation = num(appreciationPercent) / 100;
     const expenseInflation = num(expenseInflationPercent) / 100;
-    const monthlyRate = num(rate) / 100 / 12;
     const totalPayments = term * 12;
     const fixedExpensesYear1 = num(tax) + num(insurance) + hoaAnnual;
 
@@ -211,18 +169,7 @@ export default function InvestmentPropertyCalculator({ lang, copy, rates }) {
 
       if (milestoneYears.includes(year)) {
         const paymentsMade = year * 12;
-        let remainingBalance;
-        if (loanAmount <= 0) {
-          remainingBalance = 0;
-        } else if (paymentsMade >= totalPayments) {
-          remainingBalance = 0;
-        } else if (monthlyRate === 0) {
-          remainingBalance = Math.max(loanAmount - monthlyDebtService * paymentsMade, 0);
-        } else {
-          const factorN = (1 + monthlyRate) ** totalPayments;
-          const factorPaid = (1 + monthlyRate) ** paymentsMade;
-          remainingBalance = (loanAmount * (factorN - factorPaid)) / (factorN - 1);
-        }
+        const remainingBalance = loanBalance(loanAmount, num(rate), term, paymentsMade);
         const propertyValue = num(price) * (1 + appreciation) ** year;
         const equity = propertyValue - remainingBalance;
         const totalReturn = cumulativeCashFlow + (equity - downDollar);

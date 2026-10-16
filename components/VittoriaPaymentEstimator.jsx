@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { monthlyPI } from '../lib/calc';
 
 // Vittoria-specific cash-to-close + monthly payment estimator:
 // FHA loan, $8,000 seller concession, optional Texas DPA (TDHCA / TSAHC).
@@ -146,15 +147,6 @@ const COPY = {
 const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const fmt2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const num = (v) => parseFloat(v) || 0;
-
-function monthlyPI(loan, ratePct, years) {
-  const r = ratePct / 100 / 12;
-  const n = years * 12;
-  if (loan <= 0 || n <= 0) return 0;
-  if (r === 0) return loan / n;
-  const f = (1 + r) ** n;
-  return (loan * r * f) / (f - 1);
-}
 
 function formatDate(iso, lang) {
   if (!iso) return '';

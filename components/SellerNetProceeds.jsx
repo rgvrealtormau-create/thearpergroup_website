@@ -3,32 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
-
-// Typical combined property-tax rate by area (annual, as a fraction of price).
-// Kept in sync with the same constants in MortgageCalculator.jsx.
-const AREA_TAX_RATES = {
-  mcallen: 0.023, edinburg: 0.023, mission: 0.023, pharr: 0.023, weslaco: 0.023, mercedes: 0.023,
-  harlingen: 0.02, 'san-benito': 0.02, brownsville: 0.02, 'south-padre-island': 0.02,
-  other: 0.022,
-};
-
-function taxRateFor(city) {
-  return AREA_TAX_RATES[city] ?? AREA_TAX_RATES.other;
-}
-
-// Texas' promulgated (state-set) basic premium rate for an owner's title
-// policy, effective March 1, 2026 (tdi.texas.gov/title/titlerates2026.html).
-// $25,000–$100,000 is linearly interpolated from the published table
-// ($25,000 → $308, $100,000 → $780); above $100,000 uses TDI's published
-// tiered formula. This is the same statewide rate at every title company.
-function ownerTitlePremium(amount) {
-  if (amount <= 0) return 0;
-  if (amount <= 25000) return 308;
-  if (amount <= 100000) return Math.round(308 + (amount - 25000) * ((780 - 308) / 75000));
-  if (amount <= 1000000) return Math.round(780 + (amount - 100000) * 0.00494);
-  if (amount <= 5000000) return Math.round(5226 + (amount - 1000000) * 0.00406);
-  return Math.round(21466 + (amount - 5000000) * 0.00335);
-}
+import { taxRateFor, defaultClosingDate, sellerNetProceeds } from '../lib/calc';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
@@ -38,26 +13,6 @@ function round1(n) {
 
 function num(v) {
   return parseFloat(v) || 0;
-}
-
-function defaultClosingDate() {
-  const d = new Date();
-  d.setDate(d.getDate() + 45);
-  return d.toISOString().slice(0, 10);
-}
-
-// Seller's prorated share of the current year's property tax, credited to
-// the buyer at closing (Texas taxes are billed for the full calendar year,
-// so the seller covers Jan 1 through the closing date).
-function taxProration(annualTax, closingDateStr) {
-  if (!closingDateStr || !annualTax) return 0;
-  const closing = new Date(`${closingDateStr}T00:00:00`);
-  if (isNaN(closing.getTime())) return 0;
-  const yearStart = new Date(closing.getFullYear(), 0, 1);
-  const yearEnd = new Date(closing.getFullYear() + 1, 0, 1);
-  const daysInYear = Math.round((yearEnd - yearStart) / 86400000);
-  const dayOfYear = Math.round((closing - yearStart) / 86400000) + 1;
-  return Math.round((annualTax * Math.min(Math.max(dayOfYear, 0), daysInYear)) / daysInYear);
 }
 
 export default function SellerNetProceeds({ lang, copy }) {
@@ -91,13 +46,14 @@ export default function SellerNetProceeds({ lang, copy }) {
   }, [salePrice, city]);
 
   const cityName = city === 'other' ? L.otherCity : cities[city]?.[lang]?.name ?? city;
-  const titlePremium = useMemo(() => ownerTitlePremium(num(salePrice)), [salePrice]);
-  const titleCost = buyerPaysTitle ? 0 : titlePremium;
-  const taxCredit = useMemo(() => taxProration(num(annualTax), closingDate), [annualTax, closingDate]);
-  const commissionCost = Math.round((num(salePrice) * num(commissionPercent)) / 100);
-
-  const netProceeds =
-    num(salePrice) - num(loanPayoff) - commissionCost - titleCost - taxCredit - num(hoaFee) - num(homeWarranty) - num(closingFees) - num(sellerConcessions);
+  const { titlePremium, titleCost, taxCredit, commissionCost, net: netProceeds } = useMemo(
+    () => sellerNetProceeds({
+      salePrice: num(salePrice), loanPayoff: num(loanPayoff), commissionPercent: num(commissionPercent), buyerPaysTitle,
+      annualTax: num(annualTax), closingDate, hoaFee: num(hoaFee), homeWarranty: num(homeWarranty),
+      closingFees: num(closingFees), sellerConcessions: num(sellerConcessions),
+    }),
+    [salePrice, loanPayoff, commissionPercent, buyerPaysTitle, annualTax, closingDate, hoaFee, homeWarranty, closingFees, sellerConcessions]
+  );
   const isShort = netProceeds < 0;
   const resultLabel = isShort ? R.cashNeeded : R.net;
   const resultValue = usd.format(Math.abs(netProceeds));

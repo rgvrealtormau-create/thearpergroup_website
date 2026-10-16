@@ -2,75 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
-
-// Texas Department of Insurance promulgated basic premium rates, effective
-// March 1, 2026 (tdi.texas.gov/title/titlerates2026.html). Below $25,000 the
-// minimum premium applies; from $25,000 to $100,000 the state publishes a
-// bracket schedule in $500 increments (not a continuous formula), keyed here
-// by each bracket's upper bound. Verified row-for-row against the published
-// PDF before shipping.
-const MIN_PREMIUM = 308;
-const BRACKET_TABLE = {
-  25000: 308, 25500: 310, 26000: 314, 26500: 317, 27000: 319, 27500: 322,
-  28000: 325, 28500: 328, 29000: 333, 29500: 336, 30000: 339, 30500: 341,
-  31000: 345, 31500: 348, 32000: 351, 32500: 355, 33000: 357, 33500: 361,
-  34000: 364, 34500: 368, 35000: 371, 35500: 373, 36000: 376, 36500: 380,
-  37000: 383, 37500: 386, 38000: 390, 38500: 393, 39000: 395, 39500: 399,
-  40000: 401, 40500: 406, 41000: 408, 41500: 412, 42000: 415, 42500: 418,
-  43000: 420, 43500: 424, 44000: 428, 44500: 431, 45000: 434, 45500: 437,
-  46000: 440, 46500: 444, 47000: 446, 47500: 448, 48000: 453, 48500: 457,
-  49000: 460, 49500: 462, 50000: 465, 50500: 468, 51000: 470, 51500: 474,
-  52000: 478, 52500: 482, 53000: 484, 53500: 488, 54000: 491, 54500: 493,
-  55000: 496, 55500: 499, 56000: 504, 56500: 507, 57000: 509, 57500: 513,
-  58000: 517, 58500: 519, 59000: 522, 59500: 525, 60000: 529, 60500: 533,
-  61000: 536, 61500: 537, 62000: 541, 62500: 545, 63000: 547, 63500: 551,
-  64000: 554, 64500: 557, 65000: 560, 65500: 563, 66000: 567, 66500: 571,
-  67000: 574, 67500: 575, 68000: 579, 68500: 582, 69000: 585, 69500: 588,
-  70000: 592, 70500: 596, 71000: 599, 71500: 601, 72000: 604, 72500: 608,
-  73000: 611, 73500: 613, 74000: 617, 74500: 621, 75000: 625, 75500: 627,
-  76000: 629, 76500: 632, 77000: 636, 77500: 639, 78000: 643, 78500: 646,
-  79000: 650, 79500: 651, 80000: 655, 80500: 658, 81000: 662, 81500: 664,
-  82000: 667, 82500: 672, 83000: 675, 83500: 677, 84000: 680, 84500: 684,
-  85000: 687, 85500: 689, 86000: 692, 86500: 697, 87000: 701, 87500: 703,
-  88000: 705, 88500: 709, 89000: 713, 89500: 715, 90000: 718, 90500: 721,
-  91000: 725, 91500: 729, 92000: 731, 92500: 734, 93000: 737, 93500: 741,
-  94000: 742, 94500: 747, 95000: 751, 95500: 754, 96000: 755, 96500: 759,
-  97000: 763, 97500: 766, 98000: 769, 98500: 773, 99000: 776, 99500: 779,
-  100000: 780,
-};
-
-// Above $100,000, TDI publishes a per-bracket formula instead of a lookup
-// table: premium = round((amount - subtract) * rate) + add.
-const FORMULA_TIERS = [
-  { upTo: 1_000_000, subtract: 100_000, rate: 0.00494, add: 780 },
-  { upTo: 5_000_000, subtract: 1_000_000, rate: 0.00406, add: 5_226 },
-  { upTo: 15_000_000, subtract: 5_000_000, rate: 0.00335, add: 21_466 },
-  { upTo: 25_000_000, subtract: 15_000_000, rate: 0.00238, add: 54_966 },
-  { upTo: 50_000_000, subtract: 25_000_000, rate: 0.00143, add: 78_766 },
-  { upTo: 100_000_000, subtract: 50_000_000, rate: 0.00129, add: 114_516 },
-  { upTo: Infinity, subtract: 100_000_000, rate: 0.00116, add: 179_016 },
-];
-
-// The basic premium for an owner's policy of a given face amount — also used
-// as the "standalone" rate for a loan policy under Rate Rule R-5 below.
-function basicPremium(amount) {
-  if (amount <= 0) return 0;
-  if (amount <= 25000) return MIN_PREMIUM;
-  if (amount <= 100000) return BRACKET_TABLE[Math.ceil(amount / 500) * 500];
-  const tier = FORMULA_TIERS.find((t) => amount <= t.upTo);
-  return Math.round((amount - tier.subtract) * tier.rate) + tier.add;
-}
-
-// Rate Rule R-5 (simultaneous issuance): when a Loan Policy issues alongside
-// an Owner's Policy on the same property (true for virtually every
-// purchase), the Loan Policy is a flat $100 if the loan doesn't exceed the
-// owner's policy amount, or the incremental basic rate plus $100 above that.
-// tdi.texas.gov/title/titlem3b.html
-function loanPolicyPremium(loanAmount, ownerAmount) {
-  if (loanAmount <= 0) return 0;
-  if (loanAmount <= ownerAmount) return 100;
-  return basicPremium(loanAmount) - basicPremium(ownerAmount) + 100;
-}
+import { titleBasicPremium as basicPremium, loanPolicyPremium } from '../lib/calc';
 
 // Rate Rule R-16 (amendment of the area & boundary / survey exception):
 // always $0 on a Loan Policy, but 5% of the Owner's Policy basic premium
