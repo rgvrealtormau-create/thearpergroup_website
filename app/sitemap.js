@@ -12,6 +12,7 @@ const STATIC_PATHS = [
   { path: 'resources/title-policy-calculator', changeFrequency: 'daily', priority: 0.9 },
   { path: 'resources/investment-property-calculator', changeFrequency: 'daily', priority: 0.9 },
   { path: 'resources/flip-calculator', changeFrequency: 'daily', priority: 0.9 },
+  { path: 'resources/sell-buy-or-keep-calculator', changeFrequency: 'daily', priority: 0.9 },
   { path: 'home-valuation', changeFrequency: 'monthly', priority: 0.8 },
   { path: 'rgv', changeFrequency: 'weekly', priority: 0.8 },
   { path: 'communities/cedar-ridge-reserve', changeFrequency: 'weekly', priority: 0.8 },
