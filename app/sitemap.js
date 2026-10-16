@@ -23,6 +23,7 @@ const STATIC_PATHS = [
   { path: 'buy/first-time-buyers', changeFrequency: 'monthly', priority: 0.7 },
   { path: 'reviews', changeFrequency: 'weekly', priority: 0.6 },
   { path: 'about', changeFrequency: 'monthly', priority: 0.5 },
+  { path: 'privacy', changeFrequency: 'yearly', priority: 0.2 },
 ];
 
 export default function sitemap() {
