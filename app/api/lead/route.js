@@ -64,6 +64,9 @@ async function featuredListingLabel(slug) {
 
 const SELLER_FORMS = new Set(['home_valuation', 'seller_net_proceeds_calculator']);
 
+// Inquiries about a specific listing or lot (not calculator users) get their own plan.
+const LISTING_FORMS = new Set(['featured_listings', 'cedar_ridge_reserve']);
+
 // The Brivity source for a website lead. Must match a source in Brivity > Settings > Sources
 // exactly, or Brivity leaves the source blank and no auto plan starts.
 function brivitySource({ formType, lang, isVittoria, isCoopAgent, referral }) {
@@ -72,6 +75,7 @@ function brivitySource({ formType, lang, isVittoria, isCoopAgent, referral }) {
   if (formType === 'vittoria_meta_ad') return `ARPER Meta - Vittoria ${L}`;
   if (isVittoria) return referral ? `ARPER Website - Vittoria Visited ${L}` : `ARPER Website - Vittoria ${L}`;
   if (SELLER_FORMS.has(formType)) return `ARPER Website - Seller ${L}`;
+  if (LISTING_FORMS.has(formType)) return `ARPER Website - Listing Inquiry ${L}`;
   return `ARPER Website - Buyer ${L}`;
 }
 
