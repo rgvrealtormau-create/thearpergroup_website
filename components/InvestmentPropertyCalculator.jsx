@@ -5,30 +5,10 @@ import Link from 'next/link';
 import { cities, citySlugs } from '../lib/content';
 import { BUSINESS, WEB3FORMS_ACCESS_KEY } from '../lib/site';
 import ExportButton from '../lib/export/ExportButton';
-import { taxRateFor, TWIA_CITIES, HIDALGO_CITIES, landlordInsuranceDefault as insuranceDefaultFor, monthlyPI, remainingBalance as loanBalance, rentalNoi } from '../lib/calc';
-
-function insuranceNoteFor(city, copy, cityName) {
-  const template = TWIA_CITIES.has(city)
-    ? copy.insuranceNoteTwia
-    : HIDALGO_CITIES.has(city)
-      ? copy.insuranceNoteStandard
-      : copy.insuranceNoteOther;
-  return template.replace('{city}', cityName);
-}
+import { taxRateFor, insuranceNoteFor, landlordInsuranceDefault as insuranceDefaultFor, monthlyPI, remainingBalance as loanBalance, rentalNoi,
+  LTR_VACANCY_DEFAULT, STR_VACANCY_DEFAULT, DEFAULT_MANAGEMENT, DEFAULT_MAINTENANCE } from '../lib/calc';
 
 const CLOSING_COST_ESTIMATE_RATE = 0.03;
-
-// Long-term-rental vacancy default: McAllen HMA overall rental vacancy,
-// mid-2025 (HUD PD&R). South Padre Island is overwhelmingly short-term/
-// vacation rentals, where occupancy trackers cluster around 47%-53% for
-// 2025-2026 — a fundamentally different rental model, so it gets its own
-// much higher "vacancy" default (treating monthly rent as the fully-booked
-// nightly-rate equivalent).
-const LTR_VACANCY_DEFAULT = 10.6;
-const STR_VACANCY_DEFAULT = 50;
-
-const DEFAULT_MANAGEMENT = 8.5;
-const DEFAULT_MAINTENANCE = 5;
 
 // DSCR/investor loans typically price 0.5-1.5 points above the conventional
 // owner-occupied average (Freddie Mac PMMS) this site's rate feed reports —

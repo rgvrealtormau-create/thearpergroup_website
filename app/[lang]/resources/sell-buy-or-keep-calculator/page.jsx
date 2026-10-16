@@ -1,4 +1,4 @@
-import { sellBuyKeep } from '../../../../lib/content';
+import { sellBuyKeep, investmentProperty } from '../../../../lib/content';
 import { getMortgageRates } from '../../../../lib/fred';
 import SellBuyKeepCalculator from '../../../../components/SellBuyKeepCalculator';
 
@@ -25,7 +25,7 @@ export default async function SellBuyKeepPage({ params }) {
       </section>
 
       <section className="wrap py-16 md:py-20">
-        <SellBuyKeepCalculator lang={lang} copy={c} rates={rates} />
+        <SellBuyKeepCalculator lang={lang} copy={c} rentalCopy={investmentProperty[lang]} rates={rates} />
       </section>
 
       <section className="bg-cream">

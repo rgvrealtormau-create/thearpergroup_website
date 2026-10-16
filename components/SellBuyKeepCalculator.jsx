@@ -3,17 +3,17 @@
 // Sell First / Buy First / Keep It calculator. Runs one set of inputs through
 // each path and shows them side by side, with no ranking. Shared math comes
 // from lib/calc.js (the same functions the other calculators use); the new
-// HELOC, overlap, gap and lender-view math from lib/sell-buy-keep.js.
-// The keep-and-rent path still shows sample figures until Pass 2.
+// HELOC, overlap, gap, keep-and-rent and lender-view math from lib/sell-buy-keep.js.
 
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import {
-  taxRateFor, monthlyPI, defaultClosingDate, sellerNetProceeds, buyerClosingCosts,
+  taxRateFor, monthlyPI, defaultClosingDate, sellerNetProceeds, buyerClosingCosts, rentalNoi,
+  landlordInsuranceDefault, insuranceNoteFor, vacancyDefaultFor, DEFAULT_MANAGEMENT, DEFAULT_MAINTENANCE,
   DEFAULT_ANNUAL_INSURANCE, PMI_ANNUAL_RATE,
 } from '../lib/calc';
 import {
-  helocMaxLine, helocDraw, overlapCost, gapCost, fannieDepartingResidence, exclusionWindowEnd, LEASEBACK_MAX_DAYS,
+  helocMaxLine, helocDraw, overlapCost, gapCost, keepAndRent, fannieDepartingResidence, exclusionWindowEnd, LEASEBACK_MAX_DAYS,
 } from '../lib/sell-buy-keep';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -30,14 +30,7 @@ function round1(n) {
 const clean = (v) => v.replace(/[^0-9.]/g, '');
 const fill = (s, vars) => Object.entries(vars).reduce((acc, [k, v]) => acc.replaceAll(`{${k}}`, v), s);
 
-// Keep-and-rent sample, shown until Pass 2 wires in the Investment Property math.
-const KEEP_SAMPLE = {
-  rent: 2000, vacancy: 10.6, management: 8.5, maintenance: 5, landlordInsurance: 1800,
-  currentTax: 4600, nonHomesteadTax: 6900, yearsLived: 5, horizon: 5, appreciation: 0,
-  moveOut: '2026-11-01', piti: 1800, downPayment: 80000, nextPayment: 2887, rentalCashFlow: -289, extraMove: 1500,
-};
-
-export default function SellBuyKeepCalculator({ lang, copy, rates }) {
+export default function SellBuyKeepCalculator({ lang, copy, rentalCopy, rates }) {
   const L = copy.labels;
   const N = copy.cardNotes;
 
@@ -80,14 +73,49 @@ export default function SellBuyKeepCalculator({ lang, copy, rates }) {
   const [helocPayment, setHelocPayment] = useState('');
   const [overlapMonths, setOverlapMonths] = useState('');
 
+  // Keep & rent
+  const [rent, setRent] = useState('');
+  const [vacancy, setVacancy] = useState(String(vacancyDefaultFor('mcallen')));
+  const [vacancyTouched, setVacancyTouched] = useState(false);
+  const [management, setManagement] = useState(String(DEFAULT_MANAGEMENT));
+  const [maintenance, setMaintenance] = useState(String(DEFAULT_MAINTENANCE));
+  const [landlordInsurance, setLandlordInsurance] = useState(String(landlordInsuranceDefault('mcallen')));
+  const [insuranceTouched, setInsuranceTouched] = useState(false);
+  const [currentTax, setCurrentTax] = useState('');
+  const [nonHomesteadTax, setNonHomesteadTax] = useState(() => String(Math.round(300000 * taxRateFor('mcallen'))));
+  const [nonHomesteadTouched, setNonHomesteadTouched] = useState(false);
+  const [currentPI, setCurrentPI] = useState('');
+  const [currentRate, setCurrentRate] = useState('');
+  const [downFrom, setDownFrom] = useState('savings');
+  const [tenantMonths, setTenantMonths] = useState('1');
+  const [landlordExperienced, setLandlordExperienced] = useState(false);
+  const [yearsLived, setYearsLived] = useState('');
+  const [moveOut, setMoveOut] = useState('');
+  const [horizon, setHorizon] = useState('5');
+  const [appreciation, setAppreciation] = useState('0');
+
   const [tab, setTab] = useState('sell');
   const [closingDate, setClosingDate] = useState('');
 
-  // Closing date (for prepaid interest) is set client-side only to avoid a
-  // build-time vs. render-time date mismatch.
+  // Dates are set client-side only to avoid a build-time vs. render-time
+  // date mismatch: closing (for prepaid interest) and move-out both ~45 days out.
   useEffect(() => {
-    setClosingDate(defaultClosingDate());
+    const d = defaultClosingDate();
+    setClosingDate(d);
+    setMoveOut(d);
   }, []);
+
+  // City-based rental defaults follow the current home's city until edited.
+  useEffect(() => {
+    if (!vacancyTouched) setVacancy(String(vacancyDefaultFor(city)));
+    if (!insuranceTouched) setLandlordInsurance(String(landlordInsuranceDefault(city)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city]);
+
+  useEffect(() => {
+    if (!nonHomesteadTouched) setNonHomesteadTax(String(Math.round(num(salePrice) * taxRateFor(city))));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salePrice, city]);
 
   function handleTermChange(nextTerm) {
     setTerm(nextTerm);
@@ -171,14 +199,55 @@ export default function SellBuyKeepCalculator({ lang, copy, rates }) {
     N.buy.listed,
   ].filter(Boolean);
 
-  // ---- Path 3: keep and rent (sample until Pass 2)
-  const lender = fannieDepartingResidence({ marketRent: KEEP_SAMPLE.rent, pitia: KEEP_SAMPLE.piti });
-  const windowEnd = exclusionWindowEnd(KEEP_SAMPLE.moveOut, KEEP_SAMPLE.yearsLived);
-  const keepNotes = copy.cardNotes.keep.map((n) => fill(n, {
-    rent: usd.format(KEEP_SAMPLE.rent), cashflow: usd.format(KEEP_SAMPLE.rentalCashFlow),
-    currentTax: usd.format(KEEP_SAMPLE.currentTax), newTax: usd.format(KEEP_SAMPLE.nonHomesteadTax),
-    windowEnd: windowEnd ? formatDate(windowEnd, lang) : '—',
-  }));
+  // ---- Path 3: keep and rent (Investment Property NOI on the non-homestead tax)
+  const rental = rentalNoi({
+    monthlyRent: num(rent), vacancyPercent: num(vacancy), managementPercent: num(management),
+    maintenancePercent: num(maintenance), tax: num(nonHomesteadTax), insurance: num(landlordInsurance),
+  });
+  const years = num(horizon);
+  // A HELOC for the down payment has to close while this is still the
+  // homestead, so it's the same line and draw as the buy-first path.
+  const keepHelocWanted = downFrom === 'heloc';
+  const keepHeloc = keepHelocWanted && maxLine != null;
+  const keepHelocMonthly = keepHeloc ? helocMonthly : 0;
+  const keep = keepAndRent({
+    homeValue: num(salePrice), mortgagePayoff: num(payoff), piti: num(piti),
+    currentPI: currentPI === '' ? null : num(currentPI),
+    currentRatePercent: currentRate === '' ? null : num(currentRate),
+    currentTax: currentTax === '' ? null : num(currentTax),
+    nonHomesteadTax: num(nonHomesteadTax), homeownerInsurance: DEFAULT_ANNUAL_INSURANCE,
+    noi: rental.noi, horizonYears: years, appreciationPercent: num(appreciation),
+    otherLiens: keepHeloc ? draw : 0,
+  });
+  const keepFromPocket = keepHeloc ? savingsUsed + shortfall : needed;
+  const keepNeeds = rent === '' ? copy.needs.rent
+    : keepHeloc && ((interestOnly && helocRate === '') || (!interestOnly && helocPayment === '')) ? copy.needs.helocRate : null;
+  // A HELOC left on the old home is part of its payment (PITIA) for the lender view.
+  const departingPitia = num(piti) + keepHelocMonthly;
+  const lender = fannieDepartingResidence({ marketRent: num(rent), pitia: departingPitia, landlordExperienceMonths: landlordExperienced ? 12 : 0 });
+  const windowEnd = yearsLived === '' ? null : exclusionWindowEnd(moveOut, num(yearsLived));
+  const NK = N.keep;
+  const keepNotes = [
+    keepHeloc
+      ? fill(NK.heloc, { needed: usd.format(needed), savings: usd.format(savingsUsed), draw: usd.format(draw) })
+      : fill(NK.needed, { needed: usd.format(needed) }),
+    keepHelocWanted && !keepHeloc ? copy.keepHelocUnavailable : null,
+    keepHeloc && shortfall > 0 ? fill(NK.helocShort, { short: usd.format(shortfall) }) : null,
+    keepFromPocket > savingsAmt ? fill(NK.overSavings, { savings: usd.format(savingsAmt) }) : null,
+    keepHeloc ? fill(NK.helocInterest, { interest: usd2.format(keepHelocMonthly) }) : null,
+    num(tenantMonths) > 0
+      ? fill(NK.vacant, { months: num(tenantMonths) === 1 ? NK.monthOne : NK.monthMany.replace('{n}', num(tenantMonths)) })
+      : null,
+    fill(NK.cashflow, { rent: usd.format(num(rent)), cashflow: usd.format(keep.cashFlowMonthly), pi: usd.format(keep.pi) }),
+    keep.piEstimated ? NK.piEstimated : null,
+    keep.taxIncrease == null
+      ? fill(NK.taxNeeds, { newTax: usd.format(num(nonHomesteadTax)) })
+      : fill(NK.taxSwing, { currentTax: usd.format(num(currentTax)), newTax: usd.format(num(nonHomesteadTax)), diff: usd.format(keep.taxIncrease) }),
+    keep.equity == null
+      ? fill(NK.horizonNeedsRate, { years, cumulative: usd.format(keep.cumulativeCashFlow) })
+      : fill(NK.horizon, { years, appreciation: round1(num(appreciation)), equity: usd.format(keep.equity), cumulative: usd.format(keep.cumulativeCashFlow) }),
+    yearsLived === '' ? null : windowEnd ? fill(NK.window, { windowEnd: formatDate(windowEnd, lang) }) : NK.windowShort,
+  ].filter(Boolean);
 
   const cards = [
     {
@@ -195,10 +264,12 @@ export default function SellBuyKeepCalculator({ lang, copy, rates }) {
     },
     {
       key: 'keep',
-      sample: true,
+      needs: keepNeeds,
       rows: [
-        usd.format(KEEP_SAMPLE.downPayment), usd.format(KEEP_SAMPLE.nextPayment + KEEP_SAMPLE.piti),
-        usd.format(KEEP_SAMPLE.extraMove + KEEP_SAMPLE.piti), usd.format(KEEP_SAMPLE.nextPayment - KEEP_SAMPLE.rentalCashFlow),
+        usd.format(keepFromPocket),
+        usd.format(num(piti) + nextPayment + keepHelocMonthly),
+        usd.format(num(tenantMonths) * num(piti) + (keepHeloc ? num(helocClosing) : 0)),
+        usd.format(nextPayment - keep.cashFlowMonthly + keepHelocMonthly),
       ],
       notes: keepNotes,
     },
@@ -341,17 +412,57 @@ export default function SellBuyKeepCalculator({ lang, copy, rates }) {
           )}
           {tab === 'keep' && (
             <>
-              <Static label={L.rent} value={usd.format(KEEP_SAMPLE.rent)} note={copy.rentNote} />
-              <Static label={L.vacancy} value={`${KEEP_SAMPLE.vacancy}%`} />
-              <Static label={L.management} value={`${KEEP_SAMPLE.management}%`} />
-              <Static label={L.maintenance} value={`${KEEP_SAMPLE.maintenance}%`} />
-              <Static label={L.landlordInsurance} value={usd.format(KEEP_SAMPLE.landlordInsurance)} />
-              <Static label={L.currentTax} value={usd.format(KEEP_SAMPLE.currentTax)} />
-              <Static label={L.nonHomesteadTax} value={usd.format(KEEP_SAMPLE.nonHomesteadTax)} note={copy.nonHomesteadNote.replace('{city}', cityName(city))} />
-              <Static label={L.downFrom} value={L.fromSavings} />
-              <Static label={L.yearsLived} value={KEEP_SAMPLE.yearsLived} />
-              <Static label={L.horizon} value={KEEP_SAMPLE.horizon} />
-              <Static label={L.appreciation} value={`${KEEP_SAMPLE.appreciation}%`} note={copy.appreciationNote} />
+              <Money label={L.rent} value={rent} onChange={setRent} note={copy.rentNote} />
+              <Percent
+                label={L.vacancy}
+                value={vacancy}
+                onChange={(v) => { setVacancy(v); setVacancyTouched(true); }}
+                note={vacancyTouched ? null : city === 'south-padre-island' ? rentalCopy.vacancyNoteSpi : rentalCopy.vacancyNote}
+              />
+              <Percent label={L.management} value={management} onChange={setManagement} note={rentalCopy.managementNote} />
+              <Percent label={L.maintenance} value={maintenance} onChange={setMaintenance} note={rentalCopy.maintenanceNote} />
+              <Money
+                label={L.landlordInsurance}
+                value={landlordInsurance}
+                onChange={(v) => { setLandlordInsurance(v); setInsuranceTouched(true); }}
+                note={insuranceTouched ? null : insuranceNoteFor(city, rentalCopy, cityName(city))}
+              />
+              <Money label={L.currentTax} value={currentTax} onChange={setCurrentTax} note={copy.currentTaxNote} />
+              <Money
+                label={L.nonHomesteadTax}
+                value={nonHomesteadTax}
+                onChange={(v) => { setNonHomesteadTax(v); setNonHomesteadTouched(true); }}
+                note={nonHomesteadTouched ? null : copy.nonHomesteadNote.replace('{city}', cityName(city))}
+              />
+              <Money label={L.currentPI} value={currentPI} onChange={setCurrentPI} note={copy.currentPINote} />
+              <Percent label={L.currentRate} value={currentRate} onChange={setCurrentRate} note={copy.currentRateNote.replace('{years}', years)} />
+              <Plain label={L.tenantMonths} value={tenantMonths} onChange={setTenantMonths} note={copy.tenantNote} />
+              <div className="grid content-start gap-1 text-sm">
+                <span>{L.downFrom}</span>
+                <div className="flex flex-wrap gap-2">
+                  {[['savings', L.fromSavings], ['heloc', L.fromHeloc]].map(([k, label]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setDownFrom(k)}
+                      className={`rounded-sm border px-4 py-2 text-left text-sm font-medium ${downFrom === k ? 'border-petrol bg-petrol text-cream' : 'border-black/20 bg-white text-ink/70 hover:border-petrol'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {keepHelocWanted && (
+                <Percent label={L.helocRate} value={helocRate} onChange={setHelocRate} note={copy.helocRateNote} />
+              )}
+              <YesNo label={L.landlordExperience} value={landlordExperienced} onChange={setLandlordExperienced} yes={L.yes} no={L.no} />
+              <Plain label={L.yearsLived} value={yearsLived} onChange={setYearsLived} />
+              <label className="grid content-start gap-1 text-sm">
+                <span>{L.moveOut}</span>
+                <input type="date" value={moveOut} onChange={(e) => setMoveOut(e.target.value)} className="w-full max-w-[14rem] rounded-sm border border-black/20 bg-white px-3 py-2" />
+              </label>
+              <Plain label={L.horizon} value={horizon} onChange={setHorizon} note={copy.horizonNote} />
+              <Percent label={L.appreciation} value={appreciation} onChange={setAppreciation} note={copy.appreciationNote} />
             </>
           )}
         </div>
@@ -365,7 +476,6 @@ export default function SellBuyKeepCalculator({ lang, copy, rates }) {
             <div key={card.key} className="flex flex-col rounded-sm border border-ink/10 bg-cream p-6 shadow-sm">
               <div className="flex items-baseline justify-between gap-3">
                 <p className="text-xs font-medium uppercase tracking-[0.2em] text-petrol">{copy.tabs[card.key]}</p>
-                {card.sample && <span className="text-[11px] uppercase tracking-wide text-ink/45">{copy.sample}</span>}
               </div>
               {card.unavailable || card.needs ? (
                 <p className="mt-4 text-sm text-ink/80">{card.unavailable || card.needs}</p>
@@ -385,9 +495,15 @@ export default function SellBuyKeepCalculator({ lang, copy, rates }) {
               {card.key === 'keep' && (
                 <div className="mt-5 border-t border-ink/10 pt-4 text-xs text-ink/70">
                   <p className="font-medium text-ink">{copy.lenderView.title}</p>
-                  <p className="mt-2">{fill(copy.lenderView.body, { rent: usd.format(KEEP_SAMPLE.rent), piti: usd.format(KEEP_SAMPLE.piti), adjusted: usd.format(lender.adjusted) })}</p>
-                  <p className="mt-2">{lender.treatment === 'debt' ? copy.lenderView.debt : copy.lenderView.offset}</p>
-                  {lender.reserves > 0 && <p className="mt-2">{copy.lenderView.reserves.replace('{reserves}', usd.format(lender.reserves))}</p>}
+                  {rent === '' ? (
+                    <p className="mt-2">{copy.lenderView.needsRent}</p>
+                  ) : (
+                    <>
+                      <p className="mt-2">{fill(copy.lenderView.body, { rent: usd.format(num(rent)), piti: usd.format(departingPitia), adjusted: usd.format(lender.adjusted) })}</p>
+                      <p className="mt-2">{lender.treatment === 'debt' ? copy.lenderView.debt : copy.lenderView.offset}</p>
+                      {lender.reserves > 0 && <p className="mt-2">{copy.lenderView.reserves.replace('{reserves}', usd.format(lender.reserves))}</p>}
+                    </>
+                  )}
                   <p className="mt-2 text-ink/50">{copy.lenderView.caveat}</p>
                 </div>
               )}
@@ -466,16 +582,6 @@ function Plain({ label, value, onChange, note }) {
     <label className="grid content-start gap-1 text-sm">
       <span>{label}</span>
       <input inputMode="decimal" value={value} onChange={(e) => onChange(clean(e.target.value))} className="w-full max-w-[10rem] rounded-sm border border-black/20 bg-white px-3 py-2" />
-      <Note>{note}</Note>
-    </label>
-  );
-}
-
-function Static({ label, value, note }) {
-  return (
-    <label className="grid content-start gap-1 text-sm">
-      <span>{label}</span>
-      <input readOnly value={value} className="w-full rounded-sm border border-black/10 bg-cream/40 px-3 py-2 text-ink/60" />
       <Note>{note}</Note>
     </label>
   );

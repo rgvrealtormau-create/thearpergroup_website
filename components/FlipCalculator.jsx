@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cities, citySlugs } from '../lib/content';
 import { WEB3FORMS_ACCESS_KEY } from '../lib/site';
-import { taxRateFor, TWIA_CITIES, HIDALGO_CITIES, titleBasicPremium } from '../lib/calc';
+import { taxRateFor, TWIA_CITIES, HIDALGO_CITIES, insuranceNoteFor, titleBasicPremium } from '../lib/calc';
 
 // A vacant property mid-rehab usually isn't covered by a standard landlord
 // policy — lenders typically require a separate vacant/renovation (builder's
@@ -13,15 +13,6 @@ function insuranceDefaultFor(city) {
   if (TWIA_CITIES.has(city)) return 350;
   if (HIDALGO_CITIES.has(city)) return 200;
   return 250;
-}
-
-function insuranceNoteFor(city, copy, cityName) {
-  const template = TWIA_CITIES.has(city)
-    ? copy.insuranceNoteTwia
-    : HIDALGO_CITIES.has(city)
-      ? copy.insuranceNoteStandard
-      : copy.insuranceNoteOther;
-  return template.replace('{city}', cityName);
 }
 
 const DEFAULT_CONTINGENCY = 15;
