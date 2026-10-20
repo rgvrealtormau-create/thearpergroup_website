@@ -7,6 +7,7 @@ import { appendLeadRow } from '../../../lib/googleSheets';
 import { sendBrivityEmail } from '../../../lib/brivity';
 import { cleanSignIn, recordVisitor, joinsFollowUp, sheetRow, leadNote, phonePretty } from '../../../lib/openHouse';
 import { sendOpenHouseThanks, sendOpenHouseAlert } from '../../../lib/openHouseEmail';
+import { sendToPortal } from '../../../lib/portalLeads';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,13 +52,19 @@ export async function POST(request) {
   // A second tap by the same visitor refreshes their answers in the portal; it does not add
   // them to the sheet or Brivity again, or email them twice.
   const fresh = !kept.again;
-  const [sheet, brivity, thanks] = await Promise.allSettled([
+  const source = `ARPER Open House ${signIn.lang === 'es' ? 'ES' : 'EN'}`;
+  const [sheet, brivity, thanks, inbox] = await Promise.allSettled([
     nurture && fresh ? appendLeadRow(sheetRow(signIn, home, submittedAt)) : Promise.resolve(null),
     nurture && fresh
-      ? sendBrivityEmail({ firstName, lastName: rest.join(' '), email: signIn.email, phone: phonePretty(signIn.phone), note: leadNote(signIn, home), type: 'Buyer', source: `ARPER Open House ${signIn.lang === 'es' ? 'ES' : 'EN'}`, propertyAddress: card?.geo ? card.geo.split(',')[0].trim() : undefined, propertyCity: city || undefined, propertyPrice: card && !card.priceSuffix ? card.price : undefined })
+      ? sendBrivityEmail({ firstName, lastName: rest.join(' '), email: signIn.email, phone: phonePretty(signIn.phone), note: leadNote(signIn, home), type: 'Buyer', source, propertyAddress: card?.geo ? card.geo.split(',')[0].trim() : undefined, propertyCity: city || undefined, propertyPrice: card && !card.priceSuffix ? card.price : undefined })
       : Promise.resolve(null),
     signIn.email && fresh ? sendOpenHouseThanks({ signIn, card, home }) : Promise.resolve(null),
+    // The portal's shared leads inbox gets the same visitors Brivity does (never one who has an agent).
+    nurture && fresh
+      ? sendToPortal({ name: signIn.name, phone: signIn.phone, email: signIn.email, lang: signIn.lang, source, message: leadNote(signIn, home), listing: signIn.listing })
+      : Promise.resolve(null),
   ]);
+  if (!settled(inbox) || inbox.value?.error) console.error('[api/open-house] portal inbox failed:', inbox.reason || inbox.value);
   if (!settled(sheet)) console.error('[api/open-house] sheet append failed:', sheet.reason);
   if (!settled(brivity)) console.error('[api/open-house] Brivity email failed:', brivity.reason);
   if (!settled(thanks)) console.error('[api/open-house] thank-you email failed:', thanks.reason);

@@ -7,6 +7,7 @@ import { sendBrivityEmail } from '../../../lib/brivity';
 import { VITTORIA_MODEL_HOME_AGENTS, parseVittoriaLotParams } from '../../../lib/site';
 import { sendVittoriaWelcomeEmail, sendVittoriaLeadAlert } from '../../../lib/vittoriaEmail';
 import { getFeaturedListings, inquiryOptions } from '../../../lib/listings';
+import { sendToPortal } from '../../../lib/portalLeads';
 
 export const runtime = 'nodejs';
 
@@ -169,21 +170,30 @@ export async function POST(request) {
   const isCoopAgent = formType === 'vittoria_agent';
   const wantsWelcome = isVittoria && !isCoopAgent && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
 
-  const [sheetResult, emailResult, welcomeResult, alertResult] = await Promise.allSettled([
+  // The exact Brivity source, used for Brivity and for the portal's leads inbox alike.
+  const source = brivitySource({ formType, lang, isVittoria, isCoopAgent, referral });
+  // The portal gets what Brivity gets, plus the visitor's own words when they wrote any.
+  const portalMessage = detail && formType !== 'vittoria_meta_ad' ? `${brivityNoteFinal}\n\n${detail}` : brivityNoteFinal;
+  const listingId = typeof listing === 'string' && UUID_RE.test(listing) ? listing : null;
+
+  const [sheetResult, emailResult, welcomeResult, alertResult, portalResult] = await Promise.allSettled([
     appendLeadRow(sheetRow),
     sendBrivityEmail({
       firstName, lastName, email, phone, note: brivityNoteFinal,
       type: isCoopAgent ? null : SELLER_FORMS.has(formType) ? 'Seller' : 'Buyer',
       // Brivity only keeps a lead's source when it matches a source in Brivity exactly, and
       // each ARPER source (with its language) starts its own ARPER auto plan.
-      source: brivitySource({ formType, lang, isVittoria, isCoopAgent, referral }),
+      source,
       propertyAddress: formType === 'home_valuation' ? address : undefined,
     }),
     wantsWelcome ? sendVittoriaWelcomeEmail({ to: email, name, lang, referralAgent: referral }) : Promise.resolve(null),
     isVittoria
       ? sendVittoriaLeadAlert({ name, phone, email, lang, source: meta.label, referralAgent: referral, buyerAgent, detail, submittedAt })
       : Promise.resolve(null),
+    // The portal's shared leads inbox (Mauricio and Pam), the moment the lead comes in.
+    sendToPortal({ name, phone, email, lang, source, message: portalMessage, listing: listingId }),
   ]);
+  if (portalResult.status === 'rejected' || portalResult.value?.error) console.error('[api/lead] portal inbox failed:', portalResult.reason || portalResult.value);
   if (welcomeResult.status === 'rejected') console.error('[api/lead] Vittoria welcome email failed:', welcomeResult.reason);
   if (alertResult.status === 'rejected') console.error('[api/lead] Vittoria lead alert failed:', alertResult.reason);
   else if (isVittoria) console.log('[api/lead] Vittoria lead alert sent; brivity:', emailResult.status, 'sheet:', sheetResult.status);
