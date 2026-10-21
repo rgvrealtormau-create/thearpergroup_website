@@ -7,7 +7,7 @@ import { sendBrivityEmail } from '../../../lib/brivity';
 import { VITTORIA_MODEL_HOME_AGENTS, parseVittoriaLotParams } from '../../../lib/site';
 import { sendVittoriaWelcomeEmail, sendVittoriaLeadAlert } from '../../../lib/vittoriaEmail';
 import { getFeaturedListings, inquiryOptions } from '../../../lib/listings';
-import { sendToPortal } from '../../../lib/portalLeads';
+import { sendToPortal, sendNewLeadAlert } from '../../../lib/portalLeads';
 
 export const runtime = 'nodejs';
 
@@ -194,6 +194,16 @@ export async function POST(request) {
     sendToPortal({ name, phone, email, lang, source, message: portalMessage, listing: listingId }),
   ]);
   if (portalResult.status === 'rejected' || portalResult.value?.error) console.error('[api/lead] portal inbox failed:', portalResult.reason || portalResult.value);
+  // Every lead that has no alert of its own (Vittoria and the Meta ad do) emails the team, with a
+  // button to the lead in the portal. A second form from the same person the same day does not.
+  const inPortal = portalResult.status === 'fulfilled' ? portalResult.value : null;
+  if (!isVittoria && !inPortal?.again && !inPortal?.test) {
+    try {
+      await sendNewLeadAlert({ name, phone, email, lang, source, message: portalMessage, portalId: inPortal?.id || null, submittedAt });
+    } catch (error) {
+      console.error('[api/lead] new-lead alert failed:', error);
+    }
+  }
   if (welcomeResult.status === 'rejected') console.error('[api/lead] Vittoria welcome email failed:', welcomeResult.reason);
   if (alertResult.status === 'rejected') console.error('[api/lead] Vittoria lead alert failed:', alertResult.reason);
   else if (isVittoria) console.log('[api/lead] Vittoria lead alert sent; brivity:', emailResult.status, 'sheet:', sheetResult.status);
