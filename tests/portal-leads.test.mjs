@@ -48,3 +48,20 @@ test('an unreachable portal never throws', async () => {
   assert.deepEqual(await sendToPortal(lead, { fetchImpl: answer({}, { ok: false, status: 503 }) }), { error: 'unreachable', status: 503 });
   assert.deepEqual(await sendToPortal(lead, { fetchImpl: async () => { throw new Error('down'); } }), { error: 'unreachable' });
 });
+
+test('the new-lead alert names the lead and opens it in the portal', async () => {
+  const { newLeadAlert } = await import('../lib/portalLeads.js');
+  const a = newLeadAlert({ name: 'Ana <b>Garza</b>', phone: '9565550100', email: 'ana@x.co', lang: 'es', source: 'ARPER Website - Seller ES', message: 'Home valuation request — 123 Main', portalId: 'abc', submittedAt: '10/20/2026, 9:00 PM' });
+  assert.equal(a.subject, 'New lead: Ana <b>Garza</b> — ARPER Website - Seller ES');
+  assert.ok(a.html.includes('https://portal.thearpergroup.com/en/leads/abc'));
+  assert.ok(a.html.includes('Ana &lt;b&gt;Garza&lt;/b&gt;') && !a.html.includes('<b>Garza</b>'), 'what a visitor typed is escaped');
+  assert.ok(a.html.includes('tel:+19565550100') && a.text.includes('Spanish'));
+});
+
+test('test names never trigger an alert', async () => {
+  process.env.RESEND_API_KEY = 'x';
+  const { sendNewLeadAlert } = await import('../lib/portalLeads.js');
+  let called = false;
+  assert.deepEqual(await sendNewLeadAlert({ name: 'zz-test Ana', source: 'ARPER Website - Buyer EN' }, { fetchImpl: async () => { called = true; } }), { skipped: 'test' });
+  assert.equal(called, false);
+});
