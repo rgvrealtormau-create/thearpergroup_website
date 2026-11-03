@@ -8,6 +8,8 @@ import { VITTORIA_MODEL_HOME_AGENTS, parseVittoriaLotParams } from '../../../lib
 import { sendVittoriaWelcomeEmail, sendVittoriaLeadAlert } from '../../../lib/vittoriaEmail';
 import { getFeaturedListings, inquiryOptions } from '../../../lib/listings';
 import { sendToPortal, sendNewLeadAlert } from '../../../lib/portalLeads';
+import { META_AD_FORMS, metaAdSource, metaAdAnswers } from '../../../lib/metaLeadAds';
+import { sendNorthParkLeadAlert } from '../../../lib/northParkEmail';
 
 export const runtime = 'nodejs';
 
@@ -46,6 +48,7 @@ const FORM_META = {
   cedar_ridge_reserve: { label: 'Website — Cedar Ridge Reserve', note: 'Cedar Ridge Reserve inquiry' },
   vittoria: { label: 'Website — Vittoria', note: 'Vittoria townhomes inquiry' },
   vittoria_meta_ad: { label: 'Meta Ad — Vittoria', note: 'Vittoria pre-sale Meta lead ad' },
+  northpark_meta_ad: { label: 'Meta Ad — North Park fourplex', note: 'North Park fourplex Meta lead ad (11501 N 25th St)' },
   vittoria_model_home: { label: 'Website — Vittoria model home', note: 'Vittoria model home check-in' },
   vittoria_brochure: { label: 'Website — Vittoria brochure', note: 'Vittoria brochure download' },
   vittoria_agent: { label: 'Website — Vittoria co-op agent', note: 'Agent downloaded the Vittoria brochure for a client' },
@@ -73,7 +76,8 @@ const LISTING_FORMS = new Set(['featured_listings', 'cedar_ridge_reserve']);
 function brivitySource({ formType, lang, isVittoria, isCoopAgent, referral }) {
   const L = lang === 'es' ? 'ES' : 'EN';
   if (isCoopAgent) return 'ARPER Website - Co-op Agent';
-  if (formType === 'vittoria_meta_ad') return `ARPER Meta - Vittoria ${L}`;
+  const metaAd = metaAdSource(formType, lang);
+  if (metaAd) return metaAd;
   if (isVittoria) return referral ? `ARPER Website - Vittoria Visited ${L}` : `ARPER Website - Vittoria ${L}`;
   if (SELLER_FORMS.has(formType)) return `ARPER Website - Seller ${L}`;
   if (LISTING_FORMS.has(formType)) return `ARPER Website - Listing Inquiry ${L}`;
@@ -132,8 +136,9 @@ export async function POST(request) {
     ? `${vittoriaLot.community}${vittoriaLot.lot ? ` · Lot ${vittoriaLot.lot}` : ''}${vittoriaLot.lotId ? ` · UUID ${vittoriaLot.lotId}` : ''} · Subject: ${vittoriaLot.subject}`
     : null;
   const brivityEmailNote = vittoriaAttribution ? `${brivityNoteWithLang} — ${vittoriaAttribution}` : brivityNoteWithLang;
-  // Meta lead-ad answers (timeline, agent, lender) are short and worth having in Brivity too.
-  const brivityNoteFinal = formType === 'vittoria_meta_ad' && detail ? `${brivityEmailNote} — ${detail}` : brivityEmailNote;
+  // Meta lead-ad answers (timeline, agent, lender, call time) are short and worth having in Brivity too.
+  const metaAnswers = META_AD_FORMS.has(formType) ? metaAdAnswers(formType, detail) : '';
+  const brivityNoteFinal = metaAnswers ? `${brivityEmailNote} — ${metaAnswers}` : brivityEmailNote;
 
   const sheetNotes = detail
     ? `${brivityNote} — submitted ${submittedAt} CT\nBuyer message: ${detail}`
@@ -173,7 +178,7 @@ export async function POST(request) {
   // The exact Brivity source, used for Brivity and for the portal's leads inbox alike.
   const source = brivitySource({ formType, lang, isVittoria, isCoopAgent, referral });
   // The portal gets what Brivity gets, plus the visitor's own words when they wrote any.
-  const portalMessage = detail && formType !== 'vittoria_meta_ad' ? `${brivityNoteFinal}\n\n${detail}` : brivityNoteFinal;
+  const portalMessage = detail && !META_AD_FORMS.has(formType) ? `${brivityNoteFinal}\n\n${detail}` : brivityNoteFinal;
   const listingId = typeof listing === 'string' && UUID_RE.test(listing) ? listing : null;
 
   const [sheetResult, emailResult, welcomeResult, alertResult, portalResult] = await Promise.allSettled([
@@ -194,10 +199,17 @@ export async function POST(request) {
     sendToPortal({ name, phone, email, lang, source, message: portalMessage, listing: listingId }),
   ]);
   if (portalResult.status === 'rejected' || portalResult.value?.error) console.error('[api/lead] portal inbox failed:', portalResult.reason || portalResult.value);
-  // Every lead that has no alert of its own (Vittoria and the Meta ad do) emails the team, with a
+  // Every lead that has no alert of its own (Vittoria and its Meta ad do) emails the team, with a
   // button to the lead in the portal. A second form from the same person the same day does not.
+  // The North Park Meta ad gets its own alert, with the call time and every answer from the form.
   const inPortal = portalResult.status === 'fulfilled' ? portalResult.value : null;
-  if (!isVittoria && !inPortal?.again && !inPortal?.test) {
+  if (formType === 'northpark_meta_ad' && !inPortal?.again && !inPortal?.test) {
+    try {
+      await sendNorthParkLeadAlert({ name, phone, email, lang, source, detail, portalId: inPortal?.id || null, submittedAt });
+    } catch (error) {
+      console.error('[api/lead] North Park alert failed:', error);
+    }
+  } else if (!isVittoria && formType !== 'northpark_meta_ad' && !inPortal?.again && !inPortal?.test) {
     try {
       await sendNewLeadAlert({ name, phone, email, lang, source, message: portalMessage, portalId: inPortal?.id || null, submittedAt });
     } catch (error) {
