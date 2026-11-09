@@ -193,7 +193,7 @@ export async function POST(request) {
     }),
     wantsWelcome ? sendVittoriaWelcomeEmail({ to: email, name, lang, referralAgent: referral }) : Promise.resolve(null),
     isVittoria
-      ? sendVittoriaLeadAlert({ name, phone, email, lang, source: meta.label, referralAgent: referral, buyerAgent, detail, submittedAt })
+      ? sendVittoriaLeadAlert({ formType, name, phone, email, lang, source: meta.label, referralAgent: referral, buyerAgent, detail, submittedAt })
       : Promise.resolve(null),
     // The portal's shared leads inbox (Mauricio and Pam), the moment the lead comes in.
     sendToPortal({ name, phone, email, lang, source, message: portalMessage, listing: listingId }),
