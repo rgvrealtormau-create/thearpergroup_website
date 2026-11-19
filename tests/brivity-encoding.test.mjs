@@ -13,3 +13,8 @@ test('Brivity lead HTML is pure ASCII: accents and dashes become numeric entitie
   const note = html.match(/<meta name="lead_message" content="([^"]*)">/)[1].replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
   assert.equal(note, '1402 Tierra Encantada Meta lead ad — plan: Hot — agente: todavía no; 1–3 meses');
 });
+
+test('long names: the last name travels as one word so Brivity keeps all of it', () => {
+  const html = brivityLeadHtml({ id: 'x', firstName: 'María', lastName: 'José García López' });
+  assert.ok(html.includes('<meta name="lead_name" content="Mar&#237;a Jos&#233;&#160;Garc&#237;a&#160;L&#243;pez">'), html);
+});
