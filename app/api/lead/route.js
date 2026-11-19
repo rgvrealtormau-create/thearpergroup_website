@@ -10,6 +10,7 @@ import { getFeaturedListings, inquiryOptions } from '../../../lib/listings';
 import { sendToPortal, sendNewLeadAlert } from '../../../lib/portalLeads';
 import { META_AD_FORMS, metaAdSource, metaAdAnswers } from '../../../lib/metaLeadAds';
 import { sendNorthParkLeadAlert } from '../../../lib/northParkEmail';
+import { classifyListingLead, sendListingIntroEmail, sendListingLeadAlert, TRACK_LABEL } from '../../../lib/metaListingLeads';
 
 export const runtime = 'nodejs';
 
@@ -49,6 +50,7 @@ const FORM_META = {
   vittoria: { label: 'Website — Vittoria', note: 'Vittoria townhomes inquiry' },
   vittoria_meta_ad: { label: 'Meta Ad — Vittoria', note: 'Vittoria pre-sale Meta lead ad' },
   northpark_meta_ad: { label: 'Meta Ad — North Park fourplex', note: 'North Park fourplex Meta lead ad (11501 N 25th St)' },
+  listing_meta_ad: { label: 'Meta Ad — Listing', note: 'Meta listing lead ad' },
   vittoria_model_home: { label: 'Website — Vittoria model home', note: 'Vittoria model home check-in' },
   vittoria_brochure: { label: 'Website — Vittoria brochure', note: 'Vittoria brochure download' },
   vittoria_agent: { label: 'Website — Vittoria co-op agent', note: 'Agent downloaded the Vittoria brochure for a client' },
@@ -73,9 +75,10 @@ const LISTING_FORMS = new Set(['featured_listings', 'cedar_ridge_reserve']);
 
 // The Brivity source for a website lead. Must match a source in Brivity > Settings > Sources
 // exactly, or Brivity leaves the source blank and no auto plan starts.
-function brivitySource({ formType, lang, isVittoria, isCoopAgent, referral }) {
+function brivitySource({ formType, lang, isVittoria, isCoopAgent, referral, listingLead }) {
   const L = lang === 'es' ? 'ES' : 'EN';
   if (isCoopAgent) return 'ARPER Website - Co-op Agent';
+  if (listingLead) return listingLead.source;
   const metaAd = metaAdSource(formType, lang);
   if (metaAd) return metaAd;
   if (isVittoria) return referral ? `ARPER Website - Vittoria Visited ${L}` : `ARPER Website - Vittoria ${L}`;
@@ -99,7 +102,9 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent, lot, community, subject, listing } = body || {};
+  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent, lot, community, subject, listing, campaign } = body || {};
+  // A listing's Meta lead ad: its answers pick the Hot, Nurture or Agent plan in Brivity.
+  const listingLead = formType === 'listing_meta_ad' ? classifyListingLead({ campaign, detail, lang }) : null;
   const featuredListing = formType === 'featured_listings' ? await featuredListingLabel(listing) : null;
   // Only credit agents on the model-home roster, so the referral column stays clean.
   const referral = VITTORIA_MODEL_HOME_AGENTS.includes(referralAgent) ? referralAgent : null;
@@ -114,7 +119,11 @@ export async function POST(request) {
   const { firstName, lastName } = splitName(name);
   const submittedAt = new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' });
 
-  const meta = FORM_META[formType] || FORM_META.home_valuation;
+  const baseMeta = FORM_META[formType] || FORM_META.home_valuation;
+  const listingName = listingLead ? (listingLead.config?.name || `unknown campaign ${campaign || '(none)'}`) : null;
+  const meta = listingLead
+    ? { label: `Meta Ad — ${listingName}`, note: `${listingName} Meta lead ad — plan: ${TRACK_LABEL[listingLead.track]}` }
+    : baseMeta;
   const selectedLot = formType === 'cedar_ridge_reserve' ? await getCurrentCedarRidgeLot(lotId) : null;
   const lotAttribution = selectedLot
     ? `Lot ${selectedLot.lot_number}${selectedLot.phase ? ` · Phase ${selectedLot.phase}` : ''}${selectedLot.public_status ? ` · ${selectedLot.public_status}` : ''}${selectedLot.price != null ? ` · ${money(selectedLot.price)}` : ''} · UUID ${selectedLot.id}`
@@ -176,12 +185,12 @@ export async function POST(request) {
   const wantsWelcome = isVittoria && !isCoopAgent && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
 
   // The exact Brivity source, used for Brivity and for the portal's leads inbox alike.
-  const source = brivitySource({ formType, lang, isVittoria, isCoopAgent, referral });
+  const source = brivitySource({ formType, lang, isVittoria, isCoopAgent, referral, listingLead });
   // The portal gets what Brivity gets, plus the visitor's own words when they wrote any.
   const portalMessage = detail && !META_AD_FORMS.has(formType) ? `${brivityNoteFinal}\n\n${detail}` : brivityNoteFinal;
-  const listingId = typeof listing === 'string' && UUID_RE.test(listing) ? listing : null;
+  const listingId = typeof listing === 'string' && UUID_RE.test(listing) ? listing : (listingLead?.config?.listingId || null);
 
-  const [sheetResult, emailResult, welcomeResult, alertResult, portalResult] = await Promise.allSettled([
+  const [sheetResult, emailResult, welcomeResult, alertResult, portalResult, introResult] = await Promise.allSettled([
     appendLeadRow(sheetRow),
     sendBrivityEmail({
       firstName, lastName, email, phone, note: brivityNoteFinal,
@@ -197,13 +206,23 @@ export async function POST(request) {
       : Promise.resolve(null),
     // The portal's shared leads inbox (Mauricio and Pam), the moment the lead comes in.
     sendToPortal({ name, phone, email, lang, source, message: portalMessage, listing: listingId }),
+    // The listing intro email (details + tour, or showing info for a buyer with an agent).
+    listingLead ? sendListingIntroEmail({ to: email, config: listingLead.config, track: listingLead.track, lang, name }) : Promise.resolve(null),
   ]);
   if (portalResult.status === 'rejected' || portalResult.value?.error) console.error('[api/lead] portal inbox failed:', portalResult.reason || portalResult.value);
   // Every lead that has no alert of its own (Vittoria and its Meta ad do) emails the team, with a
   // button to the lead in the portal. A second form from the same person the same day does not.
   // The North Park Meta ad gets its own alert, with the call time and every answer from the form.
   const inPortal = portalResult.status === 'fulfilled' ? portalResult.value : null;
-  if (formType === 'northpark_meta_ad' && !inPortal?.again && !inPortal?.test) {
+  if (introResult.status === 'rejected') console.error('[api/lead] listing intro email failed:', introResult.reason);
+  if (listingLead && !inPortal?.test) {
+    // Sent even for a repeat form: the plan and the note may differ from the first time.
+    try {
+      await sendListingLeadAlert({ name, phone, email, lang, source, detail, track: listingLead.track, config: listingLead.config, campaign, portalId: inPortal?.id || null, submittedAt });
+    } catch (error) {
+      console.error('[api/lead] listing alert failed:', error);
+    }
+  } else if (formType === 'northpark_meta_ad' && !inPortal?.again && !inPortal?.test) {
     try {
       await sendNorthParkLeadAlert({ name, phone, email, lang, source, detail, portalId: inPortal?.id || null, submittedAt });
     } catch (error) {
