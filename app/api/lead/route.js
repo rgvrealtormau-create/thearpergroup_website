@@ -122,7 +122,7 @@ export async function POST(request) {
   const baseMeta = FORM_META[formType] || FORM_META.home_valuation;
   const listingName = listingLead ? (listingLead.config?.name || `unknown campaign ${campaign || '(none)'}`) : null;
   const meta = listingLead
-    ? { label: `Meta Ad — ${listingName}`, note: `${listingName} Meta lead ad — plan: ${TRACK_LABEL[listingLead.track]}` }
+    ? { label: `Meta Ad — ${listingName}`, note: `${listingName} Meta lead ad — plan: ${TRACK_LABEL[listingLead.track]}${listingLead.config?.lender ? ` — lender for intros: ${listingLead.config.lender}` : ''}` }
     : baseMeta;
   const selectedLot = formType === 'cedar_ridge_reserve' ? await getCurrentCedarRidgeLot(lotId) : null;
   const lotAttribution = selectedLot

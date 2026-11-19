@@ -67,7 +67,8 @@ test('a Hot 1402 lead: Hot source, answers in the note, linked listing, intro em
   const brivity = net.brivity();
   assert.equal(meta(brivity.html, 'lead_source'), 'ARPER Meta Listing - Hot EN');
   const note = meta(brivity.html, 'lead_message');
-  assert.ok(note.startsWith('1402 Tierra Encantada Meta lead ad — plan: Hot (EN) — cash or financing: Financing;'), note);
+  assert.ok(note.startsWith('1402 Tierra Encantada Meta lead ad — plan: Hot — lender for intros: Cross Country Mortgage (EN) — cash or financing: Financing;'), note);
+  assert.ok(!/Angela|Salazar|Mortgage Pros/.test(JSON.stringify(net.alerts()) + net.intro().text), 'no Angela on 1402');
   assert.ok(note.includes('consent: Yes'));
   assert.equal(net.portal().listing, LISTING_1402);
   assert.equal(net.portal().source, 'ARPER Meta Listing - Hot EN');
@@ -86,6 +87,7 @@ test('a Hot 1402 lead: Hot source, answers in the note, linked listing, intro em
   assert.equal(alerts[0].subject, 'New 1402 Tierra Encantada lead (Hot): Ana Garza');
   assert.ok(alerts[0].text.startsWith('Hot plan — call within 5 minutes'));
   assert.ok(alerts[0].text.includes('Call time: Evening 5–7'));
+  assert.ok(alerts[0].text.includes('Lender for intros: Cross Country Mortgage'));
 });
 
 test('a Spanish lead with an agent gets the Agent source and the showing-info email in Spanish, no call link', async () => {
