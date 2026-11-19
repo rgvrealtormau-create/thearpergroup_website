@@ -44,7 +44,11 @@ function network() {
     portal: () => calls.find((c) => c.url.includes('/rpc/website_lead'))?.body,
   };
 }
-const meta = (html, name) => (html.match(new RegExp(`<meta name="${name}" content="([^"]*)">`)) || [])[1];
+// Brivity HTML is ASCII-only (non-ASCII sent as numeric entities); decode them back for assertions.
+const meta = (html, name) => {
+  const raw = (html.match(new RegExp(`<meta name="${name}" content="([^"]*)">`)) || [])[1];
+  return raw === undefined ? raw : raw.replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
+};
 const post = (body) => POST(new Request('https://www.thearpergroup.com/api/lead', { method: 'POST', body: JSON.stringify(body) }));
 
 test('a North Park Meta lead is filed under its own source, linked to 11501 N 25th St, never as a home valuation', async () => {
