@@ -180,6 +180,17 @@ export function Header({ lang }) {
   const items = nav[lang];
   return (
     <header className="sticky top-0 z-40 border-b border-black/10 bg-cream/95 backdrop-blur">
+      {/* Desktop: a thin bar above the nav with the number and the contact page (the nav row
+          itself is full at 1280px). Phones get the "Call" link beside Menu instead. */}
+      <div className="hidden bg-petrol text-cream xl:block">
+        <div className="wrap-wide flex items-center justify-end gap-5 py-1 text-xs">
+          <a href={`tel:${BUSINESS.phone}`} className="inline-flex items-center gap-1.5 hover:text-gold">
+            <PhoneIcon className="h-3 w-3" />
+            {ui[lang].callLong} · <span className="font-medium">{BUSINESS.phoneDisplay}</span>
+          </a>
+          <Link href={`/${lang}/contact`} className="hover:text-gold">{footerCopy[lang].sendMessage}</Link>
+        </div>
+      </div>
       <div className="wrap-wide flex items-center justify-between gap-4 py-3">
         <Link href={`/${lang}`} aria-label="The Arper Group" className="shrink-0">
           <Logo className="h-7 w-auto" priority />
@@ -192,7 +203,6 @@ export function Header({ lang }) {
               <Link key={it.href} href={it.href} className="whitespace-nowrap text-sm text-petrol hover:text-ink">{it.label}</Link>
             )
           )}
-          <CallLink lang={lang} />
           <SearchButton lang={lang} variant="petrol" className="whitespace-nowrap" />
           <PortalButton lang={lang} />
           <LangToggle lang={lang} />
@@ -215,6 +225,7 @@ export function Header({ lang }) {
                 <Link key={it.href} href={it.href} className="text-sm text-petrol" onClick={() => setOpen(false)}>{it.label}</Link>
               )
             )}
+            <Link href={`/${lang}/contact`} className="text-sm text-petrol" onClick={() => setOpen(false)}>{footerCopy[lang].sendMessage}</Link>
             <div className="flex flex-wrap items-center gap-4 pt-2">
               <SearchButton lang={lang} variant="petrol" />
               <PortalButton lang={lang} />
