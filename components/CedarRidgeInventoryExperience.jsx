@@ -60,10 +60,10 @@ export default function CedarRidgeInventoryExperience({ initialInventory, lang, 
             <h2 className="mt-3 font-crserif text-3xl md:text-5xl">{communityCopy.contact.title}</h2>
             <p className="mt-4 max-w-sm text-crnavy/70">{communityCopy.contact.lede}</p>
             <div className="mt-8 space-y-1 text-sm text-crnavy/70">
-              <p>Mauricio · (956) 517-5223</p>
+              <p>Mauricio · (956) 201-8002</p>
               <p>Pamela · (956) 414-6128</p>
               <p>The Arper Group · 4900 N 10th St Ste. B4, McAllen, TX 78504</p>
-              <p>rgvrealtormau@gmail.com</p>
+              <p>mauricio@thearpergroup.com</p>
             </div>
           </div>
           <CedarRidgeForm lang={lang} copy={communityCopy.contact} inventory={inventory} />

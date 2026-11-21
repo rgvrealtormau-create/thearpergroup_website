@@ -81,7 +81,7 @@ test('a Hot 1402 lead: Hot source, answers in the note, linked listing, intro em
   assert.deepEqual(intro.to, ['ana@example.com']);
   assert.equal(intro.reply_to, 'rgvrealtormau@gmail.com');
   assert.equal(intro.subject, '1402 Tierra Encantada: details + private tour');
-  for (const s of ['$405,000', 'Tierra Santa Golf Club', 'Alliance Real Estate Group', '4900 N 10th St Ste B4, McAllen, TX 78504', '(956) 201-8002', 'rgvrealtormau@gmail.com', 'Licensed Texas Real Estate Sales Agent', 'https://www.thearpergroup.com/en/listings', 'Information About Brokerage Services', 'TREC Consumer Protection Notice']) {
+  for (const s of ['$405,000', 'Tierra Santa Golf Club', 'Alliance Real Estate Group', '4900 N 10th St Ste B4, McAllen, TX 78504', '(956) 201-8002', 'mauricio@thearpergroup.com', 'Licensed Texas Real Estate Sales Agent', 'https://www.thearpergroup.com/en/listings', 'Information About Brokerage Services', 'TREC Consumer Protection Notice']) {
     assert.ok(intro.text.includes(s), `intro has ${s}`);
   }
   assert.ok(!/broker\b/i.test(intro.text), 'never calls Mauricio a broker');

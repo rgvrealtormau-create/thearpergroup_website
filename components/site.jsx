@@ -35,6 +35,28 @@ export function PortalButton({ lang, className = '' }) {
   );
 }
 
+function PhoneIcon({ className = '' }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.6a1 1 0 01-.25 1L6.6 10.8z" fill="currentColor" />
+    </svg>
+  );
+}
+
+// Click-to-call Mauricio, in the header (desktop and mobile) and the footer.
+export function CallLink({ lang, className = '', short = false }) {
+  return (
+    <a
+      href={`tel:${BUSINESS.phone}`}
+      aria-label={`${ui[lang].callLong} ${BUSINESS.phoneDisplay}`}
+      className={`inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap text-sm font-medium text-petrol hover:text-ink ${className}`}
+    >
+      <PhoneIcon />
+      {short ? ui[lang].call : BUSINESS.phoneDisplay}
+    </a>
+  );
+}
+
 export function LangToggle({ lang, className = '' }) {
   const pathname = usePathname();
   return (
@@ -158,6 +180,17 @@ export function Header({ lang }) {
   const items = nav[lang];
   return (
     <header className="sticky top-0 z-40 border-b border-black/10 bg-cream/95 backdrop-blur">
+      {/* Desktop: a thin bar above the nav with the number and the contact page (the nav row
+          itself is full at 1280px). Phones get the "Call" link beside Menu instead. */}
+      <div className="hidden bg-petrol text-cream xl:block">
+        <div className="wrap-wide flex items-center justify-end gap-5 py-1 text-xs">
+          <a href={`tel:${BUSINESS.phone}`} className="inline-flex items-center gap-1.5 hover:text-gold">
+            <PhoneIcon className="h-3 w-3" />
+            {ui[lang].callLong} · <span className="font-medium">{BUSINESS.phoneDisplay}</span>
+          </a>
+          <Link href={`/${lang}/contact`} className="hover:text-gold">{footerCopy[lang].sendMessage}</Link>
+        </div>
+      </div>
       <div className="wrap-wide flex items-center justify-between gap-4 py-3">
         <Link href={`/${lang}`} aria-label="The Arper Group" className="shrink-0">
           <Logo className="h-7 w-auto" priority />
@@ -174,9 +207,13 @@ export function Header({ lang }) {
           <PortalButton lang={lang} />
           <LangToggle lang={lang} />
         </nav>
-        <button className="text-sm text-petrol xl:hidden" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-          {open ? ui[lang].close : ui[lang].menu}
-        </button>
+        <div className="flex items-center gap-5 xl:hidden">
+          <CallLink lang={lang} short className="sm:hidden" />
+          <CallLink lang={lang} className="hidden sm:inline-flex" />
+          <button className="min-h-[44px] text-sm text-petrol" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+            {open ? ui[lang].close : ui[lang].menu}
+          </button>
+        </div>
       </div>
       {open && (
         <div className="border-t border-black/10 bg-cream xl:hidden">
@@ -188,6 +225,7 @@ export function Header({ lang }) {
                 <Link key={it.href} href={it.href} className="text-sm text-petrol" onClick={() => setOpen(false)}>{it.label}</Link>
               )
             )}
+            <Link href={`/${lang}/contact`} className="text-sm text-petrol" onClick={() => setOpen(false)}>{footerCopy[lang].sendMessage}</Link>
             <div className="flex flex-wrap items-center gap-4 pt-2">
               <SearchButton lang={lang} variant="petrol" />
               <PortalButton lang={lang} />
@@ -238,7 +276,18 @@ export function Footer({ lang }) {
           <p className="mt-3"><a className="link-underline" href={`/${lang}/privacy`}>{f.privacy}</a></p>
         </div>
         <div className="text-sm">
-          <div className="text-cream/90">{f.followUs}</div>
+          <div className="text-cream/90">{f.contact}</div>
+          <p className="mt-2">
+            <a className="text-lg link-underline" href={`tel:${BUSINESS.phone}`} aria-label={`${ui[lang].callLong} ${BUSINESS.phoneDisplay}`}>{BUSINESS.phoneDisplay}</a>
+            <span className="text-cream/60"> · Mauricio</span>
+          </p>
+          <p className="mt-1">
+            <a className="link-underline" href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
+          </p>
+          <p className="mt-1">
+            <Link className="link-underline" href={`/${lang}/contact`}>{f.sendMessage}</Link>
+          </p>
+          <div className="mt-6 text-cream/90">{f.followUs}</div>
           <div className="mt-3 grid grid-cols-2 gap-6">
             <SocialGroup person={SOCIAL.mau} />
             <SocialGroup person={SOCIAL.pam} />
