@@ -76,6 +76,7 @@ export default function LangLayout({ children, params }) {
     jobTitle: 'Real Estate Agent',
     worksFor: { '@id': BUSINESS_ID },
     telephone: BUSINESS.phone,
+    email: BUSINESS.email,
     url: `${BUSINESS.url}/en/about`,
     sameAs: [SOCIAL.mau.instagram, SOCIAL.mau.facebook, SOCIAL.mau.tiktok],
   };

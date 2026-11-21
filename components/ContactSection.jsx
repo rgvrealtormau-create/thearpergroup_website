@@ -23,7 +23,9 @@ export default function ContactSection({ lang, asPageTitle = false, page }) {
             <a href={`tel:${digits}`} className="inline-flex min-h-[44px] items-center text-2xl link-underline">{BUSINESS.phoneDisplay}</a>
             <a href={`sms:${digits}`} className="inline-flex min-h-[44px] items-center rounded-sm border border-petrol px-4 text-sm text-petrol hover:bg-petrol hover:text-cream">{c.text}</a>
           </div>
-          <div className="mt-6 text-sm text-ink/70">{c.office}</div>
+          <div className="mt-6 text-sm text-ink/70">{c.emailLabel}</div>
+          <a href={`mailto:${BUSINESS.email}`} className="mt-1 inline-flex min-h-[44px] items-center link-underline">{BUSINESS.email}</a>
+          <div className="mt-4 text-sm text-ink/70">{c.office}</div>
           <address className="mt-1 not-italic text-ink/85">
             {BUSINESS.street}<br />
             {BUSINESS.city}, {BUSINESS.region} {BUSINESS.postalCode}

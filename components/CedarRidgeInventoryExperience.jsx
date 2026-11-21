@@ -63,7 +63,7 @@ export default function CedarRidgeInventoryExperience({ initialInventory, lang, 
               <p>Mauricio · (956) 201-8002</p>
               <p>Pamela · (956) 414-6128</p>
               <p>The Arper Group · 4900 N 10th St Ste. B4, McAllen, TX 78504</p>
-              <p>rgvrealtormau@gmail.com</p>
+              <p>mauricio@thearpergroup.com</p>
             </div>
           </div>
           <CedarRidgeForm lang={lang} copy={communityCopy.contact} inventory={inventory} />

@@ -282,6 +282,9 @@ export function Footer({ lang }) {
             <span className="text-cream/60"> · Mauricio</span>
           </p>
           <p className="mt-1">
+            <a className="link-underline" href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
+          </p>
+          <p className="mt-1">
             <Link className="link-underline" href={`/${lang}/contact`}>{f.sendMessage}</Link>
           </p>
           <div className="mt-6 text-cream/90">{f.followUs}</div>

@@ -185,7 +185,7 @@ export default async function CedarRidgeReserve({ params }) {
               <p>Mauricio · (956) 201-8002</p>
               <p>Pamela · (956) 414-6128</p>
               <p>The Arper Group · 4900 N 10th St Ste. B4, McAllen, TX 78504</p>
-              <p>rgvrealtormau@gmail.com</p>
+              <p>mauricio@thearpergroup.com</p>
             </div>
           </div>
           <Suspense fallback={<div className="h-96 rounded-sm border border-crnavy/10 bg-white/40" />}>
