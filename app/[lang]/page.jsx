@@ -4,6 +4,7 @@ import { home } from '../../lib/content';
 import { searchUrl, pageAlternates } from '../../lib/site';
 import { SearchButton } from '../../components/site';
 import CityTiles from '../../components/CityTiles';
+import ContactSection from '../../components/ContactSection';
 
 export async function generateMetadata({ params }) {
   const c = home[params.lang];
@@ -194,6 +195,9 @@ export default function Home({ params }) {
           <p className="mt-6 text-sm text-cream/70">{c.reviewAttribution}</p>
         </div>
       </section>
+
+      {/* Contact form + click-to-call */}
+      <ContactSection lang={lang} page="Home page" />
 
       {/* Closing CTA */}
       <section className="bg-cream">

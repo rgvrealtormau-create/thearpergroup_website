@@ -55,7 +55,13 @@ const FORM_META = {
   vittoria_brochure: { label: 'Website — Vittoria brochure', note: 'Vittoria brochure download' },
   vittoria_agent: { label: 'Website — Vittoria co-op agent', note: 'Agent downloaded the Vittoria brochure for a client' },
   featured_listings: { label: 'Website — Featured Listings', note: 'Featured listings inquiry' },
+  contact: { label: 'Website — Contact form', note: 'Contact form' },
 };
+
+// The contact form asks whether the visitor is buying, selling, both or something else.
+// Only these values are kept (this endpoint is public); a seller goes in as a seller lead.
+const CONTACT_INTERESTS = { buying: 'Buying', selling: 'Selling', both: 'Buying and selling', other: 'Something else' };
+const contactInterest = (value) => (Object.hasOwn(CONTACT_INTERESTS, value) ? value : null);
 
 // The Featured listings form sends the id of the listing the visitor picked. It is
 // looked up against what the page itself is showing (this endpoint is public), so only
@@ -75,14 +81,14 @@ const LISTING_FORMS = new Set(['featured_listings', 'cedar_ridge_reserve']);
 
 // The Brivity source for a website lead. Must match a source in Brivity > Settings > Sources
 // exactly, or Brivity leaves the source blank and no auto plan starts.
-function brivitySource({ formType, lang, isVittoria, isCoopAgent, referral, listingLead }) {
+function brivitySource({ formType, lang, isVittoria, isCoopAgent, referral, listingLead, isSeller }) {
   const L = lang === 'es' ? 'ES' : 'EN';
   if (isCoopAgent) return 'ARPER Website - Co-op Agent';
   if (listingLead) return listingLead.source;
   const metaAd = metaAdSource(formType, lang);
   if (metaAd) return metaAd;
   if (isVittoria) return referral ? `ARPER Website - Vittoria Visited ${L}` : `ARPER Website - Vittoria ${L}`;
-  if (SELLER_FORMS.has(formType)) return `ARPER Website - Seller ${L}`;
+  if (isSeller) return `ARPER Website - Seller ${L}`;
   if (LISTING_FORMS.has(formType)) return `ARPER Website - Listing Inquiry ${L}`;
   return `ARPER Website - Buyer ${L}`;
 }
@@ -102,7 +108,13 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent, lot, community, subject, listing, campaign } = body || {};
+  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent, lot, community, subject, listing, campaign, interest, botcheck } = body || {};
+  // The hidden honeypot box every form carries: a person never ticks it, a bot filling every
+  // field does. Answered like a success so the bot learns nothing, and nothing is kept.
+  if (botcheck) return NextResponse.json({ ok: true });
+  const contactWants = formType === 'contact' ? contactInterest(interest) : null;
+  // Home valuation and seller net proceeds are seller forms; on the contact form, the visitor says.
+  const isSeller = SELLER_FORMS.has(formType) || contactWants === 'selling';
   // A listing's Meta lead ad: its answers pick the Hot, Nurture or Agent plan in Brivity.
   const listingLead = formType === 'listing_meta_ad' ? classifyListingLead({ campaign, detail, lang }) : null;
   const featuredListing = formType === 'featured_listings' ? await featuredListingLabel(listing) : null;
@@ -132,7 +144,9 @@ export async function POST(request) {
     ? `${meta.note} — ${address}`
     : featuredListing
       ? `${meta.note} — ${featuredListing}`
-      : meta.note;
+      : contactWants
+        ? `${meta.note} — ${CONTACT_INTERESTS[contactWants]}`
+        : meta.note;
   const withLot = lotAttribution ? `${baseBrivityNote} — ${lotAttribution}` : baseBrivityNote;
   const withReferral = referral ? `${withLot} — referred by ${referral} (Alliance)` : withLot;
   const brivityNote = buyerAgent ? `${withReferral} — buyer's agent: ${buyerAgent}` : withReferral;
@@ -185,7 +199,7 @@ export async function POST(request) {
   const wantsWelcome = isVittoria && !isCoopAgent && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || '');
 
   // The exact Brivity source, used for Brivity and for the portal's leads inbox alike.
-  const source = brivitySource({ formType, lang, isVittoria, isCoopAgent, referral, listingLead });
+  const source = brivitySource({ formType, lang, isVittoria, isCoopAgent, referral, listingLead, isSeller });
   // The portal gets what Brivity gets, plus the visitor's own words when they wrote any.
   const portalMessage = detail && !META_AD_FORMS.has(formType) ? `${brivityNoteFinal}\n\n${detail}` : brivityNoteFinal;
   const listingId = typeof listing === 'string' && UUID_RE.test(listing) ? listing : (listingLead?.config?.listingId || null);
@@ -194,7 +208,7 @@ export async function POST(request) {
     appendLeadRow(sheetRow),
     sendBrivityEmail({
       firstName, lastName, email, phone, note: brivityNoteFinal,
-      type: isCoopAgent ? null : SELLER_FORMS.has(formType) ? 'Seller' : 'Buyer',
+      type: isCoopAgent ? null : isSeller ? 'Seller' : 'Buyer',
       // Brivity only keeps a lead's source when it matches a source in Brivity exactly, and
       // each ARPER source (with its language) starts its own ARPER auto plan.
       source,
