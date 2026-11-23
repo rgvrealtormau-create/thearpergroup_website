@@ -18,7 +18,7 @@ const row = (over = {}) => ({
   status: 'Active', list_date: '2026-09-02', for_sale: true, for_rent: false, price: 417000, rent_price: null,
   property_type: 'Single-family home', property_type_es: 'Casa unifamiliar', category: 'homes', mls_number: '514101',
   photo_path: `${LISTING}/1.jpg`, photo_kind: 'photo', tag_en: null, tag_es: null,
-  facts_en: '4 bed · 3 bath · 2,980 sq ft', facts_es: '4 recámaras · 3 baños · 2,980 pies²',
+  facts_en: '4 bed · 3 bath · 2,277 sq ft', facts_es: '4 recámaras · 3 baños · 2,277 pies²',
   blurb_en: 'Single-story.', blurb_es: 'De una planta.', promos_en: [], promos_es: [], cso_en: null, cso_es: null,
   title_en: null, title_es: null, city_line: null, alt_en: null, alt_es: null, ask_en: null, ask_es: null,
   community: null, latitude: null, longitude: null, annual_taxes: null, updated_at: '2026-10-06T23:36:27+00:00', ...over,
@@ -119,7 +119,7 @@ test('the thank-you email is in the visitor\'s language and opens the calculator
   assert.equal(es.subject, 'Gracias por visitar 1402 Tierra Encantada, Weslaco');
   assert.match(es.text, /Hola Ana:/);
   assert.match(es.text, new RegExp(`https://www\\.thearpergroup\\.com/es/resources/mortgage-calculator\\?listing=${LISTING}`));
-  assert.match(es.text, /\$417,000 · 4 recámaras · 3 baños · 2,980 pies² · MLS #514101/);
+  assert.match(es.text, /\$417,000 · 4 recámaras · 3 baños · 2,277 pies² · MLS #514101/);
   assert.doesNotMatch(es.text, /Ya trabajas con un agente/);
   const withAgent = thanksEmail({ signIn: cleanSignIn(visitor({ hasAgent: 'yes', email: 'ana@example.com' })), card, home: 'x' });
   assert.match(withAgent.text, /Working with an agent\? Send them this email/);
