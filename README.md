@@ -35,6 +35,20 @@ mortgage-calculator forms: it appends a row to the sphere nurture Google Sheet a
 Brivity's lead-parsing address, in parallel, best-effort (failures are logged, never block
 the form's Web3Forms confirmation). See `lib/googleSheets.js` and `lib/brivity.js`.
 
+## Muse leads
+`app/api/muse-lead/route.js` takes one row from the "To Brivity" tab of the Muse lead log
+(posted by a Zap as JSON) and emails it to Brivity's lead-parsing address, the same way the
+site's own forms do, so no Brivity API key is needed. The plan comes from the source, which
+must exist in Brivity > Settings > Sources with an auto plan trigger:
+`ARPER Muse - Buyer EN`, `ARPER Muse - Buyer ES`, `ARPER Muse - Renter EN`, `ARPER Muse - Renter ES`.
+The listing the person asked about goes in the parser's property fields, and the listing and
+listing-alert wishes go in the note, so the evening Brivity run can set the alert.
+JSON keys: firstName, lastName, phone, email, intent (Buyer or Tenant), language (English or
+Spanish), channel, listingAddress, listingCity, listingPrice, listingBeds, description,
+alertAreas, alertMinPrice, alertMaxPrice, alertMinBeds. Set `MUSE_LEAD_TOKEN` in Vercel and send
+it from the Zap in an `x-muse-token` header. Rules in `lib/museLeads.js`, checks in
+`tests/muse-lead.test.mjs`.
+
 ## Open house sign-in
 A sign at an open house carries a QR code for `/open-house/<listing id>` (the id is the
 listing's id in the Arper portal; the portal's listing page shows the code to print). That
