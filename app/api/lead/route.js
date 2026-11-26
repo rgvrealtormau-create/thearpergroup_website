@@ -7,7 +7,8 @@ import { sendBrivityEmail } from '../../../lib/brivity';
 import { VITTORIA_MODEL_HOME_AGENTS, parseVittoriaLotParams } from '../../../lib/site';
 import { sendVittoriaWelcomeEmail, sendVittoriaLeadAlert } from '../../../lib/vittoriaEmail';
 import { getFeaturedListings, inquiryOptions } from '../../../lib/listings';
-import { sendToPortal, sendNewLeadAlert } from '../../../lib/portalLeads';
+import { sendToPortal, sendNewLeadAlert, sendHeldLeadAlert } from '../../../lib/portalLeads';
+import { screenPitch, SCREENED_FORMS } from '../../../lib/spamScreen';
 import { META_AD_FORMS, metaAdSource, metaAdAnswers } from '../../../lib/metaLeadAds';
 import { sendNorthParkLeadAlert } from '../../../lib/northParkEmail';
 import { classifyListingLead, sendListingIntroEmail, sendListingLeadAlert, TRACK_LABEL } from '../../../lib/metaListingLeads';
@@ -162,6 +163,21 @@ export async function POST(request) {
   // Meta lead-ad answers (timeline, agent, lender, call time) are short and worth having in Brivity too.
   const metaAnswers = META_AD_FORMS.has(formType) ? metaAdAnswers(formType, detail) : '';
   const brivityNoteFinal = metaAnswers ? `${brivityEmailNote} — ${metaAnswers}` : brivityEmailNote;
+
+  // A message that reads like a sales pitch (business funding, SEO and the like) is held: the
+  // team gets it by email, marked as possible spam, and nothing goes to Brivity, the portal or
+  // the sheet, so no buyer plan starts. The visitor sees the usual thank-you either way.
+  const pitch = SCREENED_FORMS.has(formType) ? screenPitch(detail) : null;
+  if (pitch) {
+    const source = brivitySource({ formType, lang, isVittoria: false, isCoopAgent: false, referral: null, listingLead: null, isSeller });
+    try {
+      await sendHeldLeadAlert({ name, phone, email, lang, source, message: detail, submittedAt, reason: pitch.reason });
+    } catch (error) {
+      console.error('[api/lead] held-lead alert failed:', error);
+    }
+    console.log('[api/lead] held as possible spam:', formType, pitch.reason);
+    return NextResponse.json({ ok: true });
+  }
 
   const sheetNotes = detail
     ? `${brivityNote} — submitted ${submittedAt} CT\nBuyer message: ${detail}`

@@ -85,3 +85,32 @@ test('a contact form with neither phone nor email is refused', async () => {
   const res = await post({ formType: 'contact', lang: 'en', name: 'No Contact', interest: 'buying' });
   assert.equal(res.status, 400);
 });
+
+const PITCH = "Source: Contact page\nInterested in: Buying\nMessage: Hi, you guys list homes right?\n\nIf you're still doing a lot of work like that there might be a very interesting conversation we could have about backing you guys.\n\nIt would be better to talk before Thanksgiving. Could I give you a call today? Just reply here with the best number to reach you.\n\nTalk soon,\nDaniel — New York Savings, NYC";
+
+test('a sales pitch on the contact form is held: one marked email to the team, nothing to Brivity or the portal', async () => {
+  const net = network();
+  const res = await post({ formType: 'contact', lang: 'en', name: 'Daniel Edwards', phone: '6075550100', email: 'daniel@example.com', interest: 'buying', detail: PITCH });
+  assert.equal(res.status, 200);
+  assert.equal(net.brivity(), undefined, 'not sent to Brivity');
+  assert.equal(net.portal(), undefined, 'not sent to the portal');
+  const alerts = net.alerts();
+  assert.equal(alerts.length, 1);
+  assert.equal(alerts[0].subject, 'Held as possible spam: Daniel Edwards — ARPER Website - Buyer EN');
+  assert.ok(alerts[0].text.includes('Not sent to Brivity'));
+  assert.ok(alerts[0].text.includes('backing you guys'), 'the team still sees every word');
+  assert.ok(!alerts[0].html.includes('Open in the portal'));
+});
+
+test('ordinary buyer messages are not held', async () => {
+  for (const words of [
+    'Do you guys have anything in Mission under 250k? Please call me after 5.',
+    'Saw your listing on Zillow https://www.zillow.com/homedetails/123 and want a showing this weekend.',
+    'Estamos buscando casa en McAllen, ¿me puedes llamar? Tenemos pre-aprobación del banco.',
+    'Is your team available Saturday for a tour? We have a lender already.',
+  ]) {
+    const net = network();
+    await post({ formType: 'contact', lang: 'en', name: 'Real Buyer', phone: '9565550144', interest: 'buying', detail: `Source: Contact page\nInterested in: Buying\nMessage: ${words}` });
+    assert.ok(net.brivity(), `sent to Brivity: ${words}`);
+  }
+});
