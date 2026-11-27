@@ -36,6 +36,8 @@ const COPY = {
     language: 'Preferred language',
     langEn: 'English',
     langEs: 'Spanish',
+    moveTimeline: 'When are you hoping to move?',
+    moveOptions: { next_30_days: 'In the next 30 days', '1_3_months': 'In 1-3 months', just_looking: 'Just looking' },
     hasAgent: 'Is the buyer already working with a real estate agent?',
     hasAgentPublic: 'Are you already working with a real estate agent?',
     no: 'No',
@@ -80,6 +82,8 @@ const COPY = {
     language: 'Idioma preferido',
     langEn: 'Inglés',
     langEs: 'Español',
+    moveTimeline: '¿Cuándo te gustaría mudarte?',
+    moveOptions: { next_30_days: 'En los próximos 30 días', '1_3_months': 'En 1 a 3 meses', just_looking: 'Solo estoy viendo' },
     hasAgent: '¿El comprador ya trabaja con un agente de bienes raíces?',
     hasAgentPublic: '¿Ya trabajas con un agente de bienes raíces?',
     no: 'No',
@@ -136,6 +140,7 @@ export default function VittoriaLeadForm({ lang, mode = 'public', lotInfo = null
     const buyerLang = data.get('buyerLang') || lang;
     const buyerAgent = hasAgent === 'yes' ? String(data.get('buyerAgent') || '').trim() || 'Yes (name not given)' : '';
     const notes = String(data.get('notes') || '').trim();
+    const moveTimeline = String(data.get('moveTimeline') || '');
     const submittedAt = new Date();
 
     const detail = [
@@ -159,6 +164,7 @@ export default function VittoriaLeadForm({ lang, mode = 'public', lotInfo = null
           name, phone, email, detail,
           referralAgent: agent || null,
           buyerAgent: buyerAgent || null,
+          moveTimeline,
           ...(lot ? { lot: lot.lot || null, lotId: lot.lotId || null, community: lot.community, subject: lot.subject } : {}),
         }),
       }).then((r) => r.ok),
@@ -172,6 +178,7 @@ export default function VittoriaLeadForm({ lang, mode = 'public', lotInfo = null
           page: checkin ? 'Vittoria model home check-in' : 'Vittoria page',
           name, phone, email,
           language: buyerLang === 'es' ? 'Spanish' : 'English',
+          move_timeline: COPY.en.moveOptions[moveTimeline] || '',
           message: detail,
         }),
       }).then((r) => r.json()).then((j) => !!j.success),
@@ -269,6 +276,15 @@ export default function VittoriaLeadForm({ lang, mode = 'public', lotInfo = null
         <div className="mt-2 flex gap-5 text-sm">
           <label className="flex items-center gap-2"><input type="radio" name="buyerLang" value="en" defaultChecked={lang !== 'es'} className="accent-petrol" /> {c.langEn}</label>
           <label className="flex items-center gap-2"><input type="radio" name="buyerLang" value="es" defaultChecked={lang === 'es'} className="accent-petrol" /> {c.langEs}</label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend className="text-sm text-ink/70">{c.moveTimeline}</legend>
+        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          {Object.entries(c.moveOptions).map(([value, label], i) => (
+            <label key={value} className="flex items-center gap-2"><input type="radio" name="moveTimeline" value={value} required={i === 0} className="accent-petrol" /> {label}</label>
+          ))}
         </div>
       </fieldset>
 

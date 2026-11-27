@@ -12,6 +12,7 @@ import { screenPitch, SCREENED_FORMS } from '../../../lib/spamScreen';
 import { META_AD_FORMS, metaAdSource, metaAdAnswers } from '../../../lib/metaLeadAds';
 import { sendNorthParkLeadAlert } from '../../../lib/northParkEmail';
 import { classifyListingLead, sendListingIntroEmail, sendListingLeadAlert, TRACK_LABEL } from '../../../lib/metaListingLeads';
+import { nextTextingWindow, chicagoLabel } from '../../../lib/textingHours';
 
 export const runtime = 'nodejs';
 
@@ -77,6 +78,24 @@ async function featuredListingLabel(slug) {
 
 const SELLER_FORMS = new Set(['home_valuation', 'seller_net_proceeds_calculator']);
 
+// The calculators an investor uses start the Investor plan in Brivity.
+const INVESTOR_FORMS = new Set(['investment_property_calculator', 'flip_calculator']);
+
+// Vittoria's website forms ask "When are you hoping to move?" (required; not the co-op agent
+// form). Only these answers are kept (this endpoint is public). They are written in the lead's
+// language in the Brivity note, where the 7 pm Brivity run reads the timeline to move an Intro
+// lead to Hot, Warm or Nurture, so the wording must stay exactly as it is here.
+const TIMELINE_FORMS = new Set(['vittoria', 'vittoria_model_home', 'vittoria_brochure']);
+const MOVE_TIMELINE = {
+  en: { question: 'when are you hoping to move', next_30_days: 'In the next 30 days', '1_3_months': 'In 1-3 months', just_looking: 'Just looking' },
+  es: { question: '¿cuándo te gustaría mudarte', next_30_days: 'En los próximos 30 días', '1_3_months': 'En 1 a 3 meses', just_looking: 'Solo estoy viendo' },
+};
+function moveTimelineAnswer(formType, value, lang) {
+  if (!TIMELINE_FORMS.has(formType) || !['next_30_days', '1_3_months', 'just_looking'].includes(value)) return null;
+  const words = MOVE_TIMELINE[lang === 'es' ? 'es' : 'en'];
+  return { answer: words[value], note: `${words.question}: ${words[value]}` };
+}
+
 // Inquiries about a specific listing or lot (not calculator users) get their own plan.
 const LISTING_FORMS = new Set(['featured_listings', 'cedar_ridge_reserve']);
 
@@ -91,6 +110,7 @@ function brivitySource({ formType, lang, isVittoria, isCoopAgent, referral, list
   if (isVittoria) return referral ? `ARPER Website - Vittoria Visited ${L}` : `ARPER Website - Vittoria ${L}`;
   if (isSeller) return `ARPER Website - Seller ${L}`;
   if (LISTING_FORMS.has(formType)) return `ARPER Website - Listing Inquiry ${L}`;
+  if (INVESTOR_FORMS.has(formType)) return `ARPER Website - Investor ${L}`;
   return `ARPER Website - Buyer ${L}`;
 }
 
@@ -109,7 +129,7 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent, lot, community, subject, listing, campaign, interest, botcheck } = body || {};
+  const { formType, lang, name, email, phone, address, detail, lotId, referralAgent, buyerAgent, lot, community, subject, listing, campaign, interest, moveTimeline, botcheck } = body || {};
   // The hidden honeypot box every form carries: a person never ticks it, a bot filling every
   // field does. Answered like a success so the bot learns nothing, and nothing is kept.
   if (botcheck) return NextResponse.json({ ok: true });
@@ -151,6 +171,10 @@ export async function POST(request) {
   const withLot = lotAttribution ? `${baseBrivityNote} — ${lotAttribution}` : baseBrivityNote;
   const withReferral = referral ? `${withLot} — referred by ${referral} (Alliance)` : withLot;
   const brivityNote = buyerAgent ? `${withReferral} — buyer's agent: ${buyerAgent}` : withReferral;
+  // The Vittoria forms' move timeline, in the lead's language: Brivity, the sheet, the portal
+  // and the team alert all get it.
+  const moveAnswer = moveTimelineAnswer(formType, moveTimeline, lang);
+  const timeline = moveAnswer?.note || null;
   const brivityNoteWithLang = lang ? `${brivityNote} (${String(lang).toUpperCase()})` : brivityNote;
 
   // Brivity's note excludes `detail` (unlike the Sheet, which appends it below), so
@@ -162,7 +186,7 @@ export async function POST(request) {
   const brivityEmailNote = vittoriaAttribution ? `${brivityNoteWithLang} — ${vittoriaAttribution}` : brivityNoteWithLang;
   // Meta lead-ad answers (timeline, agent, lender, call time) are short and worth having in Brivity too.
   const metaAnswers = META_AD_FORMS.has(formType) ? metaAdAnswers(formType, detail) : '';
-  const brivityNoteFinal = metaAnswers ? `${brivityEmailNote} — ${metaAnswers}` : brivityEmailNote;
+  const brivityNoteFinal = [brivityEmailNote, metaAnswers, timeline].filter(Boolean).join(' — ');
 
   // A message that reads like a sales pitch (business funding, SEO and the like) is held: the
   // team gets it by email, marked as possible spam, and nothing goes to Brivity, the portal or
@@ -179,9 +203,10 @@ export async function POST(request) {
     return NextResponse.json({ ok: true });
   }
 
+  const sheetNote = timeline ? `${brivityNote} — ${timeline}` : brivityNote;
   const sheetNotes = detail
-    ? `${brivityNote} — submitted ${submittedAt} CT\nBuyer message: ${detail}`
-    : `${brivityNote} — submitted ${submittedAt} CT`;
+    ? `${sheetNote} — submitted ${submittedAt} CT\nBuyer message: ${detail}`
+    : `${sheetNote} — submitted ${submittedAt} CT`;
 
   const howIKnowThem = referral ? `${meta.label} — referred by ${referral}` : meta.label;
 
@@ -216,8 +241,13 @@ export async function POST(request) {
 
   // The exact Brivity source, used for Brivity and for the portal's leads inbox alike.
   const source = brivitySource({ formType, lang, isVittoria, isCoopAgent, referral, listingLead, isSeller });
+  // Outside texting hours the Brivity email waits for the next window (lib/textingHours.js);
+  // the portal says when it will arrive, so no one adds the lead to Brivity by hand meanwhile.
+  const now = new Date();
+  const brivityAt = nextTextingWindow(now);
+  const brivityWait = brivityAt ? `\n\nReaches Brivity ${chicagoLabel(brivityAt)} CT (held until texting hours).` : '';
   // The portal gets what Brivity gets, plus the visitor's own words when they wrote any.
-  const portalMessage = detail && !META_AD_FORMS.has(formType) ? `${brivityNoteFinal}\n\n${detail}` : brivityNoteFinal;
+  const portalMessage = (detail && !META_AD_FORMS.has(formType) ? `${brivityNoteFinal}\n\n${detail}` : brivityNoteFinal) + brivityWait;
   const listingId = typeof listing === 'string' && UUID_RE.test(listing) ? listing : (listingLead?.config?.listingId || null);
 
   const [sheetResult, emailResult, welcomeResult, alertResult, portalResult, introResult] = await Promise.allSettled([
@@ -229,10 +259,11 @@ export async function POST(request) {
       // each ARPER source (with its language) starts its own ARPER auto plan.
       source,
       propertyAddress: formType === 'home_valuation' ? address : undefined,
+      now,
     }),
     wantsWelcome ? sendVittoriaWelcomeEmail({ to: email, name, lang, referralAgent: referral }) : Promise.resolve(null),
     isVittoria
-      ? sendVittoriaLeadAlert({ name, phone, email, lang, source: meta.label, referralAgent: referral, buyerAgent, detail, submittedAt })
+      ? sendVittoriaLeadAlert({ name, phone, email, lang, source: meta.label, referralAgent: referral, buyerAgent, moveTimeline: moveAnswer?.answer || null, detail, submittedAt })
       : Promise.resolve(null),
     // The portal's shared leads inbox (Mauricio and Pam), the moment the lead comes in.
     sendToPortal({ name, phone, email, lang, source, message: portalMessage, listing: listingId }),

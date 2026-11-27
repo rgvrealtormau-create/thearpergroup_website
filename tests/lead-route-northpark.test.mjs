@@ -19,6 +19,11 @@ process.env.PORTAL_SUPABASE_URL = 'https://portal-db.example';
 process.env.PORTAL_SUPABASE_PUBLISHABLE_KEY = 'test-publishable-key';
 delete process.env.LEAD_ALERT_EMAILS;
 
+// These checks run on a weekday afternoon in McAllen (inside texting hours), so nothing here
+// depends on when the tests happen to run; tests/texting-hours.test.mjs covers the night hold.
+const IN_HOURS = Date.parse('2026-12-07T20:00:00Z'); // Mon 2 pm CST
+globalThis.Date = class extends Date { constructor(...a) { super(...(a.length ? a : [IN_HOURS])); } static now() { return IN_HOURS; } };
+
 const { POST } = await import('../app/api/lead/route.js');
 const { northParkLeadAlert } = await import('../lib/northParkEmail.js');
 const { metaAdAnswers, splitAnswers, callTimeAnswer } = await import('../lib/metaLeadAds.js');

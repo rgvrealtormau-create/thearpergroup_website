@@ -35,6 +35,15 @@ mortgage-calculator forms: it appends a row to the sphere nurture Google Sheet a
 Brivity's lead-parsing address, in parallel, best-effort (failures are logged, never block
 the form's Web3Forms confirmation). See `lib/googleSheets.js` and `lib/brivity.js`.
 
+## Night hold for Brivity
+A lead reaches Brivity when this site emails Brivity's lead parser, and that starts the lead's
+ARPER auto plan, whose first text can go out at once. So every Brivity lead email (website
+forms, calculators, Meta ads, Muse rows, open house sign-ins) goes out only inside texting hours,
+America/Chicago: Monday to Saturday 9:00 am to 9:00 pm, Sunday 12:00 pm to 9:00 pm. Outside them
+it is scheduled with Resend's `scheduled_at` for the next window's start. The team alert, the
+lead's own email, the sheet row and the portal row still happen at once; the portal message says
+when the lead reaches Brivity. Rules in `lib/textingHours.js`, checks in `tests/texting-hours.test.mjs`.
+
 ## Muse leads
 `app/api/muse-lead/route.js` takes one row from the "To Brivity" tab of the Muse lead log
 (posted by a Zap as JSON) and emails it to Brivity's lead-parsing address, the same way the
