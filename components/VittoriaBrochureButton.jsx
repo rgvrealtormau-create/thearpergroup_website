@@ -21,6 +21,8 @@ const COPY = {
     agentLabel: 'Saw the model home with an agent? (optional)',
     agentNone: 'No / not sure',
     isAgent: 'I’m a real estate agent sharing this with a client',
+    moveTimeline: 'When are you hoping to move?',
+    moveOptions: { next_30_days: 'In the next 30 days', '1_3_months': 'In 1-3 months', just_looking: 'Just looking' },
     consent: 'By submitting, you agree to be contacted by call or text about Vittoria. Msg/data rates may apply.',
     submit: 'Download & keep me posted',
     sending: 'Sending…',
@@ -36,6 +38,8 @@ const COPY = {
     agentLabel: '¿Viste la casa modelo con un agente? (opcional)',
     agentNone: 'No / no estoy seguro',
     isAgent: 'Soy agente de bienes raíces y lo comparto con un cliente',
+    moveTimeline: '¿Cuándo te gustaría mudarte?',
+    moveOptions: { next_30_days: 'En los próximos 30 días', '1_3_months': 'En 1 a 3 meses', just_looking: 'Solo estoy viendo' },
     consent: 'Al enviar, aceptas que te contactemos por llamada o mensaje de texto sobre Vittoria. Pueden aplicar tarifas de mensajes/datos.',
     submit: 'Descargar y mantenerme al tanto',
     sending: 'Enviando…',
@@ -93,6 +97,8 @@ export default function VittoriaBrochureButton({ lang, label, tone = 'light' }) 
     const phone = String(data.get('phone') || '').trim();
     const email = String(data.get('email') || '').trim();
     const agent = isAgent ? '' : String(data.get('agent') || '');
+    // Asked of buyers only; an agent downloading for a client skips it.
+    const moveTimeline = isAgent ? '' : String(data.get('moveTimeline') || '');
     const detail = [
       'Source: Vittoria brochure download',
       isAgent ? 'Real estate agent downloading for a client' : `Saw the model home with: ${agent || 'No one selected'}`,
@@ -107,6 +113,7 @@ export default function VittoriaBrochureButton({ lang, label, tone = 'light' }) 
           formType: isAgent ? 'vittoria_agent' : 'vittoria_brochure',
           lang, name, phone, email, detail,
           referralAgent: agent || null,
+          ...(moveTimeline ? { moveTimeline } : {}),
         }),
       });
     } catch { /* the download still happens */ }
@@ -151,6 +158,17 @@ export default function VittoriaBrochureButton({ lang, label, tone = 'light' }) 
           <label className="mt-3 block text-sm">{c.email}
             <input name="email" type="email" autoComplete="email" className={inputCls} />
           </label>
+
+          {!isAgent && (
+            <fieldset className="mt-3 text-sm">
+              <legend>{c.moveTimeline}</legend>
+              <div className="mt-2 flex flex-col gap-2">
+                {Object.entries(c.moveOptions).map(([value, label], i) => (
+                  <label key={value} className="flex items-center gap-2"><input type="radio" name="moveTimeline" value={value} required={i === 0} className="h-4 w-4 accent-petrol" /> {label}</label>
+                ))}
+              </div>
+            </fieldset>
+          )}
 
           {!isAgent && (
             <label className="mt-3 block text-sm">{c.agentLabel}
